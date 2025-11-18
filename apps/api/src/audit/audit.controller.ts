@@ -51,6 +51,14 @@ export class AuditController {
     // Validate export range if dates provided
     this.auditExportService.validateExportRange(query.startDate, query.endDate)
 
+    // Convert end date to include full day (23:59:59)
+    let endDateWithTime = query.endDate
+    if (endDateWithTime) {
+      const endDate = new Date(endDateWithTime)
+      endDate.setHours(23, 59, 59, 999)
+      endDateWithTime = endDate.toISOString()
+    }
+
     // Generate filename
     const filename = this.auditExportService.generateFilename({
       userId: query.userId,
@@ -64,7 +72,7 @@ export class AuditController {
       action: query.action,
       entityType: query.entityType,
       startDate: query.startDate,
-      endDate: query.endDate,
+      endDate: endDateWithTime,
       limit: query.limit,
     })
 
