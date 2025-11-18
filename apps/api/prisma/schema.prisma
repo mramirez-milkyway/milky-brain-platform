@@ -1,0 +1,310 @@
+// Prisma schema for Central Admin Panel V1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id           Int            @id @default(autoincrement())
+  email        String         @unique
+  name         String
+  status       UserStatus     @default(ACTIVE)
+  lastSeenAt   DateTime?      @map("last_seen_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  // Relationships
+  userRoles    UserRole[]
+  userPolicies UserPolicy[]
+  auditEvents  AuditEvent[]
+  exportLogs   ExportLog[]
+  notifications Notification[]
+  settingsUpdated Setting[]
+
+  @@index([email])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+  INVITED
+}
+
+// Role model
+model Role {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relationships
+  userRoles    UserRole[]
+  rolePolicies RolePolicy[]
+
+  @@index([name])
+  @@map("roles")
+}
+
+// UserRole (many-to-many)
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId], name: "unique_user_role")
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// Policy model (IAM-like policies)
+model Policy {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  statements  Json     // [{Effect, Actions[], Resources[], Conditions?}]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  rolePolicies RolePolicy[]
+  userPolicies UserPolicy[]
+
+  @@index([name])
+  @@map("policies")
+}
+
+// RolePolicy (many-to-many)
+model RolePolicy {
+  id        Int      @id @default(autoincrement())
+  roleId    Int      @map("role_id")
+  policyId  Int      @map("policy_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, policyId], name: "unique_role_policy")
+  @@index([roleId])
+  @@index([policyId])
+  @@map("role_policies")
+}
+
+// UserPolicy (many-to-many, for overrides)
+model UserPolicy {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  policyId  Int      @map("policy_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, policyId], name: "unique_user_policy")
+  @@index([userId])
+  @@index([policyId])
+  @@map("user_policies")
+}
+
+// Workspace model (single-tenant in V1)
+model Workspace {
+  id        Int      @id @default(autoincrement())
+  name      String
+  logoUrl   String?  @map("logo_url")
+  timezone  String   @default("UTC")
+  currency  String   @default("USD")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("workspaces")
+}
+
+// Setting model (versioned configuration)
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       Json
+  version     Int      @default(1)
+  updatedBy   Int?     @map("updated_by")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updater User? @relation(fields: [updatedBy], references: [id])
+
+  @@index([key])
+  @@map("settings")
+}
+
+// Integration model
+model Integration {
+  id             Int       @id @default(autoincrement())
+  provider       String    @unique
+  status         IntegrationStatus @default(ACTIVE)
+  lastSuccessAt  DateTime? @map("last_success_at")
+  errorRate24h   Float     @default(0) @map("error_rate_24h")
+  quotaUsed      Int       @default(0) @map("quota_used")
+  config         Json      // Encrypted secrets, config
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([provider])
+  @@map("integrations")
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+// AuditEvent model (tamper-evident)
+model AuditEvent {
+  id          Int      @id @default(autoincrement())
+  actorId     Int      @map("actor_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  hash        String   // SHA-256 hash
+  prevHash    String?  @map("prev_hash")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([hash])
+  @@index([prevHash])
+  @@map("audit_events")
+}
+
+// Job model (for BullMQ tracking)
+model Job {
+  id          Int       @id @default(autoincrement())
+  taskId      String    @unique @map("task_id")
+  jobType     String    @map("job_type")
+  status      JobStatus @default(PENDING)
+  queue       String    @default("default")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5) @map("max_attempts")
+  errorReason String?   @map("error_reason")
+  meta        Json?
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([taskId])
+  @@index([jobType])
+  @@index([status])
+  @@map("jobs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+// ExportLog model
+model ExportLog {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @map("user_id")
+  objectRef           String    @map("object_ref")
+  rowCount            Int       @map("row_count")
+  destination         ExportDestination
+  shareLinkToken      String?   @unique @map("share_link_token")
+  shareLinkExpiresAt  DateTime? @map("share_link_expires_at")
+  watermark           String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("export_logs")
+}
+
+enum ExportDestination {
+  DOWNLOAD
+  SHARE_LINK
+}
+
+// Notification model
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  category  String
+  payload   Json
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([category])
+  @@map("notifications")
+}
+
+// FeatureFlag model
+model FeatureFlag {
+  id                Int      @id @default(autoincrement())
+  key               String   @unique
+  description       String?
+  enabledByDefault  Boolean  @default(false) @map("enabled_by_default")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  overrides FeatureFlagOverride[]
+
+  @@index([key])
+  @@map("feature_flags")
+}
+
+// FeatureFlagOverride model
+model FeatureFlagOverride {
+  id            Int      @id @default(autoincrement())
+  featureFlagId Int      @map("feature_flag_id")
+  subjectType   SubjectType @map("subject_type")
+  subjectId     Int      @map("subject_id")
+  value         Boolean
+  constraints   Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  @@unique([featureFlagId, subjectType, subjectId], name: "unique_feature_flag_override")
+  @@index([featureFlagId])
+  @@map("feature_flag_overrides")
+}
+
+enum SubjectType {
+  ROLE
+  USER
+}
