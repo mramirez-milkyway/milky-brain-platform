@@ -47,22 +47,24 @@ export class AuditService {
 
   generateDescription(event: any): string {
     const actorName = event.actor?.name || `User ${event.actorId}`
-    const [method, path] = event.action.split(' ')
+    const actionParts = event.action?.split(' ') || []
+    const method = actionParts[0] || ''
+    const path = actionParts[1] || ''
     const entityType = event.entityType
     const entityId = event.entityId
 
     // Handle sensitive operations
-    if (path.includes('/password') || event.beforeState?.password || event.afterState?.password) {
+    if (path?.includes('/password') || event.beforeState?.password || event.afterState?.password) {
       return `${actorName} changed their password`
     }
 
     // POST operations (Create)
     if (method === 'POST') {
-      if (path.includes('/invite')) {
+      if (path?.includes('/invite')) {
         const email = event.beforeState?.email || event.afterState?.email
         return email ? `${actorName} invited ${email}` : `${actorName} invited a new user`
       }
-      if (path.includes('/roles') && entityId) {
+      if (path?.includes('/roles') && entityId) {
         return `${actorName} assigned a role to user ${entityId}`
       }
       const targetEmail = event.beforeState?.email || event.afterState?.email
@@ -76,7 +78,7 @@ export class AuditService {
     // PATCH operations (Update)
     if (method === 'PATCH' || method === 'PUT') {
       // Role changes
-      if (path.includes('/roles') && event.beforeState && event.afterState) {
+      if (path?.includes('/roles') && event.beforeState && event.afterState) {
         const oldRole = event.beforeState.name
         const newRole = event.afterState.name
         if (oldRole && newRole && oldRole !== newRole) {
@@ -105,7 +107,7 @@ export class AuditService {
 
     // DELETE operations
     if (method === 'DELETE') {
-      if (path.includes('/roles') && path.split('/').length > 4) {
+      if (path?.includes('/roles') && path.split('/').length > 4) {
         return `${actorName} removed a role from user ${entityId}`
       }
       return `${actorName} deleted ${entityType}${entityId ? ` #${entityId}` : ''}`
@@ -113,7 +115,7 @@ export class AuditService {
 
     // GET operations
     if (method === 'GET') {
-      if (path.includes('/export')) {
+      if (path?.includes('/export')) {
         return `${actorName} exported ${entityType} data`
       }
       return `${actorName} viewed ${entityType}${entityId ? ` #${entityId}` : ' list'}`

@@ -11,21 +11,22 @@ datasource db {
 
 // User model
 model User {
-  id           Int            @id @default(autoincrement())
-  email        String         @unique
-  name         String
-  status       UserStatus     @default(ACTIVE)
-  lastSeenAt   DateTime?      @map("last_seen_at")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
+  id         Int        @id @default(autoincrement())
+  email      String     @unique
+  name       String
+  status     UserStatus @default(ACTIVE)
+  lastSeenAt DateTime?  @map("last_seen_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
 
   // Relationships
-  userRoles    UserRole[]
-  userPolicies UserPolicy[]
-  auditEvents  AuditEvent[]
-  exportLogs   ExportLog[]
-  notifications Notification[]
+  userRoles       UserRole[]
+  userPolicies    UserPolicy[]
+  auditEvents     AuditEvent[]
+  exportLogs      ExportLog[]
+  notifications   Notification[]
   settingsUpdated Setting[]
+  invitation      UserInvitation?
 
   @@index([email])
   @@map("users")
@@ -39,11 +40,11 @@ enum UserStatus {
 
 // Role model
 model Role {
-  id          Int          @id @default(autoincrement())
-  name        String       @unique
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
   description String?
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relationships
   userRoles    UserRole[]
@@ -75,7 +76,7 @@ model Policy {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   description String?
-  statements  Json     // [{Effect, Actions[], Resources[], Conditions?}]
+  statements  Json // [{Effect, Actions[], Resources[], Conditions?}]
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -153,15 +154,15 @@ model Setting {
 
 // Integration model
 model Integration {
-  id             Int       @id @default(autoincrement())
-  provider       String    @unique
-  status         IntegrationStatus @default(ACTIVE)
-  lastSuccessAt  DateTime? @map("last_success_at")
-  errorRate24h   Float     @default(0) @map("error_rate_24h")
-  quotaUsed      Int       @default(0) @map("quota_used")
-  config         Json      // Encrypted secrets, config
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id            Int               @id @default(autoincrement())
+  provider      String            @unique
+  status        IntegrationStatus @default(ACTIVE)
+  lastSuccessAt DateTime?         @map("last_success_at")
+  errorRate24h  Float             @default(0) @map("error_rate_24h")
+  quotaUsed     Int               @default(0) @map("quota_used")
+  config        Json // Encrypted secrets, config
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   @@index([provider])
   @@map("integrations")
@@ -184,7 +185,7 @@ model AuditEvent {
   afterState  Json?    @map("after_state")
   ipAddress   String?  @map("ip_address")
   userAgent   String?  @map("user_agent")
-  hash        String   // SHA-256 hash
+  hash        String // SHA-256 hash
   prevHash    String?  @map("prev_hash")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -232,16 +233,16 @@ enum JobStatus {
 
 // ExportLog model
 model ExportLog {
-  id                  Int       @id @default(autoincrement())
-  userId              Int       @map("user_id")
-  objectRef           String    @map("object_ref")
-  rowCount            Int       @map("row_count")
-  destination         ExportDestination
-  shareLinkToken      String?   @unique @map("share_link_token")
-  shareLinkExpiresAt  DateTime? @map("share_link_expires_at")
-  watermark           String?
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  id                 Int               @id @default(autoincrement())
+  userId             Int               @map("user_id")
+  objectRef          String            @map("object_ref")
+  rowCount           Int               @map("row_count")
+  destination        ExportDestination
+  shareLinkToken     String?           @unique @map("share_link_token")
+  shareLinkExpiresAt DateTime?         @map("share_link_expires_at")
+  watermark          String?
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
 
@@ -256,13 +257,13 @@ enum ExportDestination {
 
 // Notification model
 model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
   category  String
   payload   Json
   readAt    DateTime? @map("read_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
 
@@ -273,12 +274,12 @@ model Notification {
 
 // FeatureFlag model
 model FeatureFlag {
-  id                Int      @id @default(autoincrement())
-  key               String   @unique
-  description       String?
-  enabledByDefault  Boolean  @default(false) @map("enabled_by_default")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  key              String   @unique
+  description      String?
+  enabledByDefault Boolean  @default(false) @map("enabled_by_default")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   overrides FeatureFlagOverride[]
 
@@ -288,14 +289,14 @@ model FeatureFlag {
 
 // FeatureFlagOverride model
 model FeatureFlagOverride {
-  id            Int      @id @default(autoincrement())
-  featureFlagId Int      @map("feature_flag_id")
+  id            Int         @id @default(autoincrement())
+  featureFlagId Int         @map("feature_flag_id")
   subjectType   SubjectType @map("subject_type")
-  subjectId     Int      @map("subject_id")
+  subjectId     Int         @map("subject_id")
   value         Boolean
   constraints   Json?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
 
@@ -307,4 +308,19 @@ model FeatureFlagOverride {
 enum SubjectType {
   ROLE
   USER
+}
+
+// UserInvitation model
+model UserInvitation {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("user_invitations")
 }
