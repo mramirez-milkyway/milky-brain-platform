@@ -1,7 +1,8 @@
-# Audit Capability - Spec Delta
+# audit Specification
 
-## MODIFIED Requirements
-
+## Purpose
+TBD - created by archiving change add-comprehensive-audit-logging. Update Purpose after archive.
+## Requirements
 ### Requirement: Automatic Request Logging
 
 The system SHALL automatically capture all authenticated API requests and store them as immutable audit events without requiring manual instrumentation.
@@ -158,3 +159,4 @@ The system SHALL return audit events in reverse chronological order (newest firs
 
 - **WHEN** an admin requests `/audit?limit=10000`
 - **THEN** the system returns at most 1000 events (system maximum limit)
+
