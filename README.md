@@ -13,11 +13,12 @@ A comprehensive, secure admin panel system with IAM-like RBAC, audit logging, an
 - TypeScript
 
 **Frontend:**
-- Next.js 14 (App Router)
-- React 18
+- Next.js 14/15 (App Router)
+- React 18/19
 - TanStack Query
 - Zustand
-- TailwindCSS
+- TailwindCSS 3/4
+- TailAdmin V2 Design System
 - TypeScript
 
 **Infrastructure:**
@@ -64,28 +65,42 @@ milky_way_admin_panel/
 │   │   │   └── schema.prisma         # All V1 models
 │   │   ├── package.json
 │   │   └── Dockerfile
-│   └── web/                          # Next.js Frontend
+│   ├── web/                          # Next.js Frontend (Current)
+│   │   ├── src/
+│   │   │   ├── app/
+│   │   │   │   ├── login/            # Login page
+│   │   │   │   ├── (dashboard)/      # Protected routes
+│   │   │   │   │   ├── layout.tsx    # Main layout
+│   │   │   │   │   ├── page.tsx      # Dashboard
+│   │   │   │   │   ├── users/
+│   │   │   │   │   ├── roles/
+│   │   │   │   │   ├── policies/
+│   │   │   │   │   ├── settings/
+│   │   │   │   │   ├── notifications/
+│   │   │   │   │   └── audit/
+│   │   │   │   ├── globals.css
+│   │   │   │   ├── layout.tsx
+│   │   │   │   └── providers.tsx
+│   │   │   ├── components/
+│   │   │   └── lib/
+│   │   │       ├── api-client.ts     # Axios instance
+│   │   │       └── auth-store.ts     # Zustand store
+│   │   ├── package.json
+│   │   └── Dockerfile
+│   └── web-admin/                    # Next.js Frontend (TailAdmin V2)
 │       ├── src/
 │       │   ├── app/
 │       │   │   ├── login/            # Login page
-│       │   │   ├── (dashboard)/      # Protected routes
-│       │   │   │   ├── layout.tsx    # Main layout
-│       │   │   │   ├── page.tsx      # Dashboard
-│       │   │   │   ├── users/
-│       │   │   │   ├── roles/
-│       │   │   │   ├── policies/
-│       │   │   │   ├── settings/
-│       │   │   │   ├── notifications/
-│       │   │   │   └── audit/
-│       │   │   ├── globals.css
-│       │   │   ├── layout.tsx
-│       │   │   └── providers.tsx
-│       │   ├── components/
-│       │   └── lib/
-│       │       ├── api-client.ts     # Axios instance
-│       │       └── auth-store.ts     # Zustand store
-│       ├── package.json
-│       └── Dockerfile
+│       │   │   ├── app/              # Main application dashboard
+│       │   │   ├── (admin)/          # Admin routes with sidebar
+│       │   │   └── (full-width-pages)/ # Auth & error pages
+│       │   ├── components/           # TailAdmin V2 components
+│       │   ├── layout/               # Sidebar, Header, etc.
+│       │   ├── icons/                # SVG icons
+│       │   ├── hooks/                # Custom hooks
+│       │   ├── context/              # React contexts
+│       │   └── utils/                # Utilities
+│       └── package.json
 ├── packages/                         # Shared packages
 │   ├── config/
 │   ├── types/
@@ -96,6 +111,110 @@ milky_way_admin_panel/
 ├── package.json
 └── README.md
 ```
+
+## Frontend Design System: TailAdmin V2
+
+### System Design Selection
+
+We have selected **TailAdmin V2** as our frontend design system for the following reasons:
+
+#### Why TailAdmin V2?
+
+1. **Modern & Professional Design**
+   - Clean, contemporary UI that aligns with modern admin panel standards
+   - Professional color schemes and typography
+   - Consistent design language across all components
+
+2. **Comprehensive Component Library**
+   - 100+ pre-built React components
+   - Advanced charts (ApexCharts integration)
+   - Form elements with validation
+   - Data tables with sorting, filtering, pagination
+   - Modals, dropdowns, notifications, and more
+   - Calendar, file upload, rich text editors
+
+3. **Built for Next.js & React**
+   - Next.js 15 with App Router support
+   - React 19 compatible
+   - Server and Client Components
+   - Optimized for performance
+
+4. **TailwindCSS 4.0**
+   - Modern utility-first CSS framework
+   - Easy to customize and extend
+   - Responsive design out of the box
+   - Dark mode support included
+
+5. **TypeScript First**
+   - Fully typed components
+   - Better IDE support and autocomplete
+   - Fewer runtime errors
+
+6. **Responsive & Accessible**
+   - Mobile-first responsive design
+   - Collapsible sidebar for mobile devices
+   - Keyboard navigation support
+   - WCAG compliance considerations
+
+7. **Perfect Fit for Our Tech Stack**
+   - Integrates seamlessly with TanStack Query
+   - Works well with Zustand for state management
+   - Uses Axios for HTTP requests (already in our stack)
+   - Follows SOLID principles and component isolation
+
+8. **Rapid Development**
+   - Pre-built layouts for common admin pages
+   - Reduces development time by 60-70%
+   - Focus on business logic instead of UI primitives
+   - Easy to customize and extend
+
+### Implementation Approach
+
+We've created a separate `web-admin` app to:
+- Test and validate TailAdmin V2 integration
+- Ensure all components work in our monorepo
+- Provide a clean migration path from the existing `web` app
+- Allow parallel development while maintaining existing functionality
+
+### Available Routes
+
+**Public Routes:**
+- `/login` - Authentication page with Google SSO integration
+
+**Protected Routes (with sidebar navigation):**
+- `/app` - Main dashboard with metrics and activity
+- `/` - TailAdmin demo dashboard (e-commerce example)
+- Multiple pre-built pages for future feature integration
+
+### Key Features
+
+- **Persistent Left Sidebar** with collapsible menu
+- **Account Dropdown** with user profile and settings
+- **Responsive Design** that adapts to mobile, tablet, and desktop
+- **Dark Mode** toggle
+- **Search Functionality** (Cmd+K)
+- **Notification System**
+- **Customizable Themes**
+
+### Running the New Design System
+
+```bash
+# Start the TailAdmin V2 app
+make web-admin
+
+# Or directly
+cd apps/web-admin && npm run dev
+```
+
+The app will be available at http://localhost:3000 (or next available port).
+
+### Next Steps
+
+1. Integrate with API backend
+2. Implement authentication flow
+3. Migrate existing features from `web` app
+4. Add RBAC-aware navigation
+5. Customize theme to match brand guidelines
 
 ## Quick Start
 

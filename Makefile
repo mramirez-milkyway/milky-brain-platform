@@ -17,6 +17,7 @@ help:
 	@echo "Development:"
 	@echo "  make api           - Run API server locally"
 	@echo "  make web           - Run web frontend locally"
+	@echo "  make web-admin     - Run web-admin (TailAdmin V2) frontend locally"
 	@echo ""
 	@echo "Testing & Quality:"
 	@echo "  make test          - Run all tests"
@@ -47,6 +48,10 @@ api:
 web:
 	@echo "Starting web frontend..."
 	cd apps/web && npm run dev
+
+web-admin:
+	@echo "Starting web-admin (TailAdmin V2) frontend..."
+	cd apps/web-admin && npm run dev
 
 migrate:
 	@echo "Running database migrations..."
