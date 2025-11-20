@@ -11,9 +11,27 @@ async function bootstrap() {
   app.use(helmet())
   app.use(cookieParser())
 
-  // CORS
+  // CORS - Allow multiple frontend origins
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3003',
+    'http://localhost:3004',
+  ]
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true)
+
+      // Check if origin is in allowed list or matches env variable
+      if (allowedOrigins.includes(origin) || origin === process.env.FRONTEND_URL) {
+        callback(null, true)
+      } else {
+        callback(new Error('Not allowed by CORS'))
+      }
+    },
     credentials: true,
   })
 
