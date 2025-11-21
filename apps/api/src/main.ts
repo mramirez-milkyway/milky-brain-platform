@@ -4,7 +4,40 @@ import { AppModule } from './app.module'
 import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 
+/**
+ * Validate required environment variables
+ */
+function validateEnvironment() {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const requiredVars = ['JWT_SECRET', 'DATABASE_URL', 'REDIS_URL']
+
+  if (isProduction) {
+    requiredVars.push('REFRESH_TOKEN_SECRET', 'ALLOWED_INVITE_DOMAINS')
+  }
+
+  const missing = requiredVars.filter((varName) => !process.env[varName])
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missing.join(', ')}. Please check your .env file.`
+    )
+  }
+
+  // Warn about missing refresh token secret in development
+  if (!isProduction && !process.env.REFRESH_TOKEN_SECRET) {
+    console.warn('⚠️  REFRESH_TOKEN_SECRET not set. Using default (NOT FOR PRODUCTION)')
+  }
+
+  // Warn about missing domain restriction in development
+  if (!isProduction && !process.env.ALLOWED_INVITE_DOMAINS) {
+    console.warn('⚠️  ALLOWED_INVITE_DOMAINS not set. Defaulting to milkyway-agency.com')
+  }
+}
+
 async function bootstrap() {
+  // Validate environment before starting
+  validateEnvironment()
+
   const app = await NestFactory.create(AppModule)
 
   // Security

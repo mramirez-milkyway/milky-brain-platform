@@ -1,6 +1,35 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+
 export default function SignInForm() {
+  const searchParams = useSearchParams()
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const errorCode = searchParams.get('error')
+
+    if (errorCode) {
+      const errorMessages: Record<string, string> = {
+        invalid_domain:
+          'Invalid email domain. Please use your authorized organization account (e.g., @milkyway-agency.com).',
+        no_invitation: 'No invitation found. Please contact your administrator to get invited.',
+        account_deactivated:
+          'Your account has been deactivated. Please contact your administrator.',
+        session_expired: 'Your session has expired. Please sign in again.',
+        auth_failed: 'Authentication failed. Please try again.',
+      }
+
+      setError(errorMessages[errorCode] || 'An error occurred. Please try again.')
+
+      // Auto-dismiss session_expired and auth_failed errors after 8 seconds
+      if (errorCode === 'session_expired' || errorCode === 'auth_failed') {
+        setTimeout(() => setError(null), 8000)
+      }
+    }
+  }, [searchParams])
+
   const handleGoogleLogin = () => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
     window.location.href = `${apiUrl}/auth/google`
@@ -8,7 +37,7 @@ export default function SignInForm() {
 
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
-      <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
+      <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-6">
         <div>
           <div className="mb-8 text-center">
             <h1 className="mb-2 font-semibold text-gray-800 text-title-md dark:text-white/90">
@@ -16,6 +45,44 @@ export default function SignInForm() {
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to continue</p>
           </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="w-5 h-5 text-red-600 dark:text-red-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="ml-3 flex-shrink-0 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                  aria-label="Dismiss error"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <button
               onClick={handleGoogleLogin}

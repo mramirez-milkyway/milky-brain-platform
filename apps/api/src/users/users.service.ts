@@ -249,9 +249,10 @@ export class UsersService {
       data: { status: 'DEACTIVATED' },
     })
 
-    // Revoke all active sessions if user is ACTIVE
+    // Revoke all active sessions and refresh tokens if user is ACTIVE
     if (user.status === 'ACTIVE') {
       await this.sessionService.revokeAllUserSessions(id, 'User deactivated')
+      await this.sessionService.revokeAllRefreshTokens(id)
     }
 
     // Invalidate invitation tokens if user is INVITED
@@ -296,9 +297,10 @@ export class UsersService {
       data: { userId, roleId },
     })
 
-    // Revoke sessions only for ACTIVE users
+    // Revoke sessions and refresh tokens only for ACTIVE users
     if (user.status === 'ACTIVE') {
       await this.sessionService.revokeAllUserSessions(userId, 'Role changed')
+      await this.sessionService.revokeAllRefreshTokens(userId)
     }
 
     return { success: true, message: 'Role assigned successfully' }
@@ -323,9 +325,10 @@ export class UsersService {
       throw new NotFoundException('User does not have this role')
     }
 
-    // Revoke sessions only for ACTIVE users
+    // Revoke sessions and refresh tokens only for ACTIVE users
     if (user.status === 'ACTIVE') {
       await this.sessionService.revokeAllUserSessions(userId, 'Role changed')
+      await this.sessionService.revokeAllRefreshTokens(userId)
     }
 
     return { success: true, message: 'Role removed successfully' }

@@ -6,8 +6,9 @@ import { useState, useEffect } from 'react'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Label from '@/components/form/Label'
+import PermissionGuard from '@/components/PermissionGuard'
 
-export default function SettingsPage() {
+function SettingsContent() {
   const queryClient = useQueryClient()
   const [formData, setFormData] = useState({
     name: '',
@@ -131,5 +132,13 @@ export default function SettingsPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <PermissionGuard permission="settings:Read">
+      <SettingsContent />
+    </PermissionGuard>
   )
 }

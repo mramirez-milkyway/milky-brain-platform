@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Label from '@/components/form/Label'
+import PermissionGuard from '@/components/PermissionGuard'
 
 interface Role {
   id: number
@@ -24,7 +25,7 @@ interface User {
   userRoles: Array<{ role: Role }>
 }
 
-export default function UsersPage() {
+function UsersContent() {
   const queryClient = useQueryClient()
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showDeactivateModal, setShowDeactivateModal] = useState<number | null>(null)
@@ -417,5 +418,13 @@ export default function UsersPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function UsersPage() {
+  return (
+    <PermissionGuard permission="user:Read">
+      <UsersContent />
+    </PermissionGuard>
   )
 }

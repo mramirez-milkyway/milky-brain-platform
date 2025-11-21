@@ -1,7 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
-import { APP_INTERCEPTOR } from '@nestjs/core'
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
@@ -15,6 +15,8 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor'
 import { AuditService } from './common/services/audit.service'
 import { RedisService } from './common/services/redis.service'
 import { ActivityTrackingMiddleware } from './common/middleware/activity-tracking.middleware'
+import { CsrfGuard } from './common/guards/csrf.guard'
+import { SessionService } from './auth/services/session.service'
 
 @Module({
   imports: [
@@ -48,8 +50,13 @@ import { ActivityTrackingMiddleware } from './common/middleware/activity-trackin
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,
     },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
+    },
     AuditService,
     RedisService,
+    SessionService,
   ],
 })
 export class AppModule implements NestModule {

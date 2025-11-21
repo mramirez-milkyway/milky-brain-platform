@@ -6,6 +6,10 @@ import { ConfigService } from '@nestjs/config'
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private configService: ConfigService) {
+    const allowedDomains =
+      configService.get<string>('ALLOWED_INVITE_DOMAINS') || 'milkyway-agency.com'
+    const primaryDomain = allowedDomains.split(',')[0].trim()
+
     super({
       clientID: configService.get('GOOGLE_CLIENT_ID') || 'placeholder',
       clientSecret: configService.get('GOOGLE_CLIENT_SECRET') || 'placeholder',
@@ -13,6 +17,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         configService.get('GOOGLE_CALLBACK_URL') ||
         'http://localhost:4000/api/auth/google/callback',
       scope: ['email', 'profile'],
+      hd: primaryDomain, // Google hosted domain restriction
     })
   }
 

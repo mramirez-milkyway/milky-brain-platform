@@ -1,9 +1,10 @@
 'use client'
-import React, { useCallback } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSidebar } from '../context/SidebarContext'
+import { useAuthStore } from '@/lib/auth-store'
 import {
   GridIcon,
   HorizontaLDots,
@@ -17,6 +18,7 @@ type NavItem = {
   name: string
   icon: React.ReactNode
   path: string
+  permission?: string // Optional permission required to see this item
 }
 
 // Main navigation items matching the API navigation service
@@ -25,26 +27,31 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: 'Dashboard',
     path: '/',
+    // No permission required - everyone can access dashboard
   },
   {
     icon: <UserCircleIcon />,
     name: 'Users',
     path: '/users',
+    permission: 'user:Read', // Only users with user:Read permission
   },
   {
     icon: <PageIcon />,
     name: 'Roles',
     path: '/roles',
+    permission: 'role:Read', // Only users with role:Read permission
   },
   {
     icon: <TableIcon />,
     name: 'Policies',
     path: '/policies',
+    permission: 'policy:Read', // Only users with policy:Read permission
   },
   {
     icon: <PieChartIcon />,
     name: 'Audit Log',
     path: '/audit',
+    permission: 'audit:Read', // Only users with audit:Read permission (typically Admin only)
   },
 ]
 
@@ -54,19 +61,33 @@ const additionalItems: NavItem[] = [
     icon: <PageIcon />,
     name: 'Settings',
     path: '/settings',
+    permission: 'settings:Read', // Only users with settings:Read permission
   },
   {
     icon: <GridIcon />,
     name: 'Notifications',
     path: '/notifications',
+    // No permission required for now
   },
 ]
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar()
   const pathname = usePathname()
+  const hasPermission = useAuthStore((state) => state.hasPermission)
 
   const isActive = useCallback((path: string) => path === pathname, [pathname])
+
+  // Filter navigation items based on user permissions
+  const filteredNavItems = useMemo(
+    () => navItems.filter((item) => !item.permission || hasPermission(item.permission)),
+    [hasPermission]
+  )
+
+  const filteredAdditionalItems = useMemo(
+    () => additionalItems.filter((item) => !item.permission || hasPermission(item.permission)),
+    [hasPermission]
+  )
 
   const renderMenuItems = (items: NavItem[]) => (
     <ul className="flex flex-col gap-1">
@@ -133,24 +154,32 @@ const AppSidebar: React.FC = () => {
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${
-                  !isExpanded && !isHovered ? 'xl:justify-center' : 'justify-start'
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? 'Menu' : <HorizontaLDots />}
-              </h2>
-              {renderMenuItems(navItems)}
+              {filteredNavItems.length > 0 && (
+                <>
+                  <h2
+                    className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${
+                      !isExpanded && !isHovered ? 'xl:justify-center' : 'justify-start'
+                    }`}
+                  >
+                    {isExpanded || isHovered || isMobileOpen ? 'Menu' : <HorizontaLDots />}
+                  </h2>
+                  {renderMenuItems(filteredNavItems)}
+                </>
+              )}
             </div>
             <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${
-                  !isExpanded && !isHovered ? 'xl:justify-center' : 'justify-start'
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? 'System' : <HorizontaLDots />}
-              </h2>
-              {renderMenuItems(additionalItems)}
+              {filteredAdditionalItems.length > 0 && (
+                <>
+                  <h2
+                    className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${
+                      !isExpanded && !isHovered ? 'xl:justify-center' : 'justify-start'
+                    }`}
+                  >
+                    {isExpanded || isHovered || isMobileOpen ? 'System' : <HorizontaLDots />}
+                  </h2>
+                  {renderMenuItems(filteredAdditionalItems)}
+                </>
+              )}
             </div>
           </div>
         </nav>

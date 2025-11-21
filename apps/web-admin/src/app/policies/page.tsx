@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
+import PermissionGuard from '@/components/PermissionGuard'
 
 interface PolicyStatement {
   Effect: 'Allow' | 'Deny'
@@ -18,7 +19,7 @@ interface Policy {
   createdAt: string
 }
 
-export default function PoliciesPage() {
+function PoliciesContent() {
   const { data: policiesData, isLoading } = useQuery({
     queryKey: ['policies'],
     queryFn: async () => {
@@ -56,9 +57,7 @@ export default function PoliciesPage() {
           >
             {/* Policy Header */}
             <div className="mb-4">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {policy.name}
-              </h3>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
               {policy.description && (
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                   {policy.description}
@@ -89,8 +88,8 @@ export default function PoliciesPage() {
                       : 'bg-error-100 text-error-800 dark:bg-error-900/20 dark:text-error-400'
                   }`}
                 >
-                  {stmt.Effect}: {stmt.Actions.length} action(s) on{' '}
-                  {stmt.Resources.length} resource(s)
+                  {stmt.Effect}: {stmt.Actions.length} action(s) on {stmt.Resources.length}{' '}
+                  resource(s)
                 </span>
               ))}
             </div>
@@ -122,5 +121,13 @@ export default function PoliciesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PoliciesPage() {
+  return (
+    <PermissionGuard permission="policy:Read">
+      <PoliciesContent />
+    </PermissionGuard>
   )
 }

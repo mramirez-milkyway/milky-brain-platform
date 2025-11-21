@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
+import PermissionGuard from '@/components/PermissionGuard'
 
 interface Role {
   id: number
@@ -10,7 +11,7 @@ interface Role {
   createdAt: string
 }
 
-export default function RolesPage() {
+function RolesContent() {
   const { data: rolesData, isLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
@@ -88,14 +89,20 @@ export default function RolesPage() {
               d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-            No roles found
-          </h3>
+          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No roles found</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Get started by creating your first role
           </p>
         </div>
       )}
     </div>
+  )
+}
+
+export default function RolesPage() {
+  return (
+    <PermissionGuard permission="role:Read">
+      <RolesContent />
+    </PermissionGuard>
   )
 }

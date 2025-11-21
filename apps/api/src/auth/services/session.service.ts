@@ -7,6 +7,13 @@ interface SessionMetadata {
   issuedAt: number
 }
 
+interface RefreshTokenMetadata {
+  jti: string
+  issuedAt: number
+  ipAddress?: string
+  userAgent?: string
+}
+
 interface BlacklistEntry {
   userId: number
   reason: string
@@ -22,7 +29,12 @@ export class SessionService {
   /**
    * Blacklist a JWT token by its jti (JWT ID)
    */
-  async blacklistToken(jti: string, userId: number, reason: string, ttlSeconds: number): Promise<boolean> {
+  async blacklistToken(
+    jti: string,
+    userId: number,
+    reason: string,
+    ttlSeconds: number
+  ): Promise<boolean> {
     const key = `blacklist:jwt:${jti}`
     const value: BlacklistEntry = {
       userId,
@@ -93,7 +105,7 @@ export class SessionService {
           const metadata: SessionMetadata = JSON.parse(sessionData)
           const now = Math.floor(Date.now() / 1000)
           // Assume tokens expire in 24 hours if not specified
-          const tokenExpiry = metadata.issuedAt + (24 * 60 * 60)
+          const tokenExpiry = metadata.issuedAt + 24 * 60 * 60
           ttl = Math.max(tokenExpiry - now, 60) // At least 60 seconds
         } catch (error) {
           this.logger.warn(`Failed to parse session metadata for ${sessionKey}`)
@@ -144,5 +156,120 @@ export class SessionService {
     }
 
     return sessions
+  }
+
+  /**
+   * Store refresh token in Redis
+   */
+  async storeRefreshToken(
+    userId: number,
+    tokenId: string,
+    metadata: RefreshTokenMetadata
+  ): Promise<boolean> {
+    const key = `refresh:${userId}:${tokenId}`
+    const value = JSON.stringify(metadata)
+
+    // 30 days TTL (default refresh token expiry)
+    const ttlSeconds = 30 * 24 * 60 * 60
+
+    const success = await this.redisService.set(key, value, ttlSeconds)
+
+    if (success) {
+      this.logger.log(`Refresh token stored: userId=${userId}, tokenId=${tokenId}`)
+    }
+
+    return success
+  }
+
+  /**
+   * Get refresh token metadata
+   */
+  async getRefreshToken(userId: number, tokenId: string): Promise<RefreshTokenMetadata | null> {
+    const key = `refresh:${userId}:${tokenId}`
+    const data = await this.redisService.get(key)
+
+    if (!data) {
+      return null
+    }
+
+    try {
+      return JSON.parse(data) as RefreshTokenMetadata
+    } catch (error) {
+      this.logger.warn(`Failed to parse refresh token data for ${key}`)
+      return null
+    }
+  }
+
+  /**
+   * Delete refresh token
+   */
+  async deleteRefreshToken(userId: number, tokenId: string): Promise<boolean> {
+    const key = `refresh:${userId}:${tokenId}`
+    const success = await this.redisService.del(key)
+
+    if (success) {
+      this.logger.log(`Refresh token deleted: userId=${userId}, tokenId=${tokenId}`)
+    }
+
+    return success
+  }
+
+  /**
+   * Revoke all refresh tokens for a user
+   */
+  async revokeAllRefreshTokens(userId: number): Promise<number> {
+    const pattern = `refresh:${userId}:*`
+    const tokenKeys = await this.redisService.keys(pattern)
+
+    if (tokenKeys.length === 0) {
+      this.logger.log(`No refresh tokens found for user ${userId}`)
+      return 0
+    }
+
+    let revokedCount = 0
+
+    for (const key of tokenKeys) {
+      const deleted = await this.redisService.del(key)
+      if (deleted) {
+        revokedCount++
+      }
+    }
+
+    this.logger.log(`Revoked ${revokedCount} refresh tokens for user ${userId}`)
+    return revokedCount
+  }
+
+  /**
+   * Store CSRF token in Redis
+   */
+  async storeCsrfToken(userId: number, jti: string, token: string): Promise<boolean> {
+    const key = `csrf:${userId}:${jti}`
+
+    // TTL matches access token expiry (12 hours)
+    const ttlSeconds = 12 * 60 * 60
+
+    const success = await this.redisService.set(key, token, ttlSeconds)
+
+    if (success) {
+      this.logger.log(`CSRF token stored: userId=${userId}, jti=${jti}`)
+    }
+
+    return success
+  }
+
+  /**
+   * Get CSRF token from Redis
+   */
+  async getCsrfToken(userId: number, jti: string): Promise<string | null> {
+    const key = `csrf:${userId}:${jti}`
+    return await this.redisService.get(key)
+  }
+
+  /**
+   * Delete CSRF token
+   */
+  async deleteCsrfToken(userId: number, jti: string): Promise<boolean> {
+    const key = `csrf:${userId}:${jti}`
+    return await this.redisService.del(key)
   }
 }

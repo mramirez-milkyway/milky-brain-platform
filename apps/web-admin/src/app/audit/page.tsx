@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Label from '@/components/form/Label'
+import PermissionGuard from '@/components/PermissionGuard'
 
 interface AuditEvent {
   id: number
@@ -22,7 +23,7 @@ interface AuditEvent {
   createdAt: string
 }
 
-export default function AuditPage() {
+function AuditContent() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [userId, setUserId] = useState('')
@@ -121,19 +122,11 @@ export default function AuditPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div>
             <Label>Start Date</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div>
             <Label>End Date</Label>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <div>
             <Label>User ID</Label>
@@ -196,7 +189,12 @@ export default function AuditPage() {
                       className="text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-300"
                       title="View details"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -247,9 +245,7 @@ export default function AuditPage() {
       {isModalOpen && selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-2xl p-6 bg-white rounded-lg dark:bg-gray-900">
-            <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">
-              Event Details
-            </h2>
+            <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Event Details</h2>
             <div className="space-y-4">
               <div>
                 <Label>Action</Label>
@@ -269,9 +265,7 @@ export default function AuditPage() {
               </div>
               <div>
                 <Label>IP Address</Label>
-                <p className="text-gray-900 dark:text-white">
-                  {selectedEvent.ipAddress || 'N/A'}
-                </p>
+                <p className="text-gray-900 dark:text-white">{selectedEvent.ipAddress || 'N/A'}</p>
               </div>
               <div>
                 <Label>User Agent</Label>
@@ -295,5 +289,13 @@ export default function AuditPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function AuditPage() {
+  return (
+    <PermissionGuard permission="audit:Read">
+      <AuditContent />
+    </PermissionGuard>
   )
 }

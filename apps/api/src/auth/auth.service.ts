@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma/prisma.service'
 import { User } from '@prisma/client'
 import { SessionService } from './services/session.service'
@@ -41,23 +42,44 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private sessionService: SessionService
+    private sessionService: SessionService,
+    private configService: ConfigService
   ) {}
 
   async validateGoogleUser(profile: { email: string; name: string }) {
-    let user = await this.prisma.user.findUnique({
+    // Validate domain restriction
+    const allowedDomains = this.configService
+      .get<string>('ALLOWED_INVITE_DOMAINS')
+      ?.split(',')
+      .map((d) => d.trim()) || ['milkyway-agency.com']
+
+    const userDomain = profile.email.split('@')[1]
+
+    if (!allowedDomains.includes(userDomain)) {
+      throw new UnauthorizedException('Invalid email domain. Please use an authorized domain.')
+    }
+
+    // Check if user exists and has valid invitation
+    const user = await this.prisma.user.findUnique({
       where: { email: profile.email },
     })
 
     if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: profile.email,
-          name: profile.name,
-          status: 'ACTIVE',
-        },
-      })
+      throw new UnauthorizedException(
+        'No invitation found. Please contact your administrator to get invited.'
+      )
     }
+
+    // Check user status
+    if (user.status === 'DEACTIVATED') {
+      throw new UnauthorizedException(
+        'Your account has been deactivated. Please contact your administrator.'
+      )
+    }
+
+    // If user is INVITED, this is first-time login - keep status as INVITED
+    // The acceptInvitation flow will handle activation
+    // If user is ACTIVE, allow normal login
 
     // Update last seen
     await this.prisma.user.update({
@@ -66,6 +88,31 @@ export class AuthService {
     })
 
     return user
+  }
+
+  /**
+   * Generate refresh token
+   */
+  generateRefreshToken(userId: number): { token: string; tokenId: string } {
+    const tokenId = uuidv4()
+    const refreshTokenSecret =
+      this.configService.get<string>('REFRESH_TOKEN_SECRET') ||
+      'default-refresh-secret-change-in-production'
+
+    const refreshTokenExpiry = this.configService.get<string>('REFRESH_TOKEN_EXPIRY') || '30d'
+
+    const payload = {
+      sub: userId,
+      tokenId,
+      type: 'refresh',
+    }
+
+    const token = this.jwtService.sign(payload, {
+      secret: refreshTokenSecret,
+      expiresIn: refreshTokenExpiry,
+    })
+
+    return { token, tokenId }
   }
 
   async login(user: User, ipAddress?: string, userAgent?: string) {
@@ -78,6 +125,9 @@ export class AuthService {
 
     const access_token = this.jwtService.sign(payload)
 
+    // Generate refresh token
+    const { token: refresh_token, tokenId: refreshTokenId } = this.generateRefreshToken(user.id)
+
     // Record session in Redis
     await this.sessionService.recordSession(user.id, jti, {
       ipAddress,
@@ -85,8 +135,132 @@ export class AuthService {
       issuedAt: Math.floor(Date.now() / 1000),
     })
 
+    // Store refresh token in Redis
+    await this.sessionService.storeRefreshToken(user.id, refreshTokenId, {
+      jti,
+      issuedAt: Math.floor(Date.now() / 1000),
+      ipAddress,
+      userAgent,
+    })
+
     return {
       access_token,
+      refresh_token,
+    }
+  }
+
+  /**
+   * Validate refresh token
+   */
+  async validateRefreshToken(token: string): Promise<{ userId: number; tokenId: string }> {
+    const refreshTokenSecret =
+      this.configService.get<string>('REFRESH_TOKEN_SECRET') ||
+      'default-refresh-secret-change-in-production'
+
+    try {
+      const payload = this.jwtService.verify(token, {
+        secret: refreshTokenSecret,
+      }) as { sub: number; tokenId: string; type: string }
+
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('Invalid token type')
+      }
+
+      // Check if token exists in Redis
+      const metadata = await this.sessionService.getRefreshToken(payload.sub, payload.tokenId)
+
+      if (!metadata) {
+        throw new UnauthorizedException('Refresh token not found or expired')
+      }
+
+      return {
+        userId: payload.sub,
+        tokenId: payload.tokenId,
+      }
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token')
+    }
+  }
+
+  /**
+   * Refresh access token with token rotation
+   */
+  async refreshAccessToken(
+    refreshToken: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    // Validate refresh token
+    const { userId, tokenId } = await this.validateRefreshToken(refreshToken)
+
+    // Get user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new UnauthorizedException('User not found')
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('User account is not active')
+    }
+
+    // Check for token reuse (potential theft)
+    const existingToken = await this.sessionService.getRefreshToken(userId, tokenId)
+
+    if (!existingToken) {
+      // Token was already used/deleted - possible theft
+      // Revoke all user sessions as security measure
+      await this.sessionService.revokeAllUserSessions(userId, 'Refresh token reuse detected')
+      await this.sessionService.revokeAllRefreshTokens(userId)
+      throw new UnauthorizedException('Token reuse detected. All sessions revoked.')
+    }
+
+    // Delete old refresh token
+    await this.sessionService.deleteRefreshToken(userId, tokenId)
+
+    // Blacklist old access token
+    if (existingToken.jti) {
+      await this.sessionService.blacklistToken(
+        existingToken.jti,
+        userId,
+        'Token rotated',
+        12 * 60 * 60 // 12 hours
+      )
+    }
+
+    // Generate new tokens
+    const newJti = uuidv4()
+    const accessPayload = {
+      email: user.email,
+      sub: user.id,
+      jti: newJti,
+    }
+
+    const access_token = this.jwtService.sign(accessPayload)
+    const { token: new_refresh_token, tokenId: newRefreshTokenId } = this.generateRefreshToken(
+      user.id
+    )
+
+    // Record new session
+    await this.sessionService.recordSession(user.id, newJti, {
+      ipAddress,
+      userAgent,
+      issuedAt: Math.floor(Date.now() / 1000),
+    })
+
+    // Store new refresh token
+    await this.sessionService.storeRefreshToken(user.id, newRefreshTokenId, {
+      jti: newJti,
+      issuedAt: Math.floor(Date.now() / 1000),
+      ipAddress,
+      userAgent,
+    })
+
+    return {
+      access_token,
+      refresh_token: new_refresh_token,
     }
   }
 
