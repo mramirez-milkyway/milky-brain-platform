@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: 'Users',
     path: '/users',
-    permission: 'user:Read', // Only users with user:Read permission
+    permission: 'user:Write', // Only users with user management permissions (Admin, Editor)
   },
   {
     icon: <PageIcon />,
@@ -74,20 +74,53 @@ const additionalItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar()
   const pathname = usePathname()
-  const hasPermission = useAuthStore((state) => state.hasPermission)
+  // CRITICAL: Subscribe to permissions to trigger re-renders when they change
+  const permissions = useAuthStore((state) => state.permissions)
+
+  console.log('AppSidebar render - Permissions:', permissions)
 
   const isActive = useCallback((path: string) => path === pathname, [pathname])
 
   // Filter navigation items based on user permissions
-  const filteredNavItems = useMemo(
-    () => navItems.filter((item) => !item.permission || hasPermission(item.permission)),
-    [hasPermission]
-  )
+  // CRITICAL: Compute hasPermission check inline using permissions directly
+  // This ensures the filter runs whenever permissions change
+  const filteredNavItems = useMemo(() => {
+    console.log('Filtering nav items with permissions:', permissions)
+    return navItems.filter((item) => {
+      if (!item.permission) return true
 
-  const filteredAdditionalItems = useMemo(
-    () => additionalItems.filter((item) => !item.permission || hasPermission(item.permission)),
-    [hasPermission]
-  )
+      // Inline permission check to ensure it uses current permissions
+      return permissions.some((perm) => {
+        if (perm.actions.includes('*')) return true
+        if (perm.actions.includes(item.permission!)) return true
+
+        const [resource] = item.permission!.split(':')
+        const wildcardAction = `${resource}:*`
+        if (perm.actions.includes(wildcardAction)) return true
+
+        return false
+      })
+    })
+  }, [permissions])
+
+  const filteredAdditionalItems = useMemo(() => {
+    console.log('Filtering additional items with permissions:', permissions)
+    return additionalItems.filter((item) => {
+      if (!item.permission) return true
+
+      // Inline permission check to ensure it uses current permissions
+      return permissions.some((perm) => {
+        if (perm.actions.includes('*')) return true
+        if (perm.actions.includes(item.permission!)) return true
+
+        const [resource] = item.permission!.split(':')
+        const wildcardAction = `${resource}:*`
+        if (perm.actions.includes(wildcardAction)) return true
+
+        return false
+      })
+    })
+  }, [permissions])
 
   const renderMenuItems = (items: NavItem[]) => (
     <ul className="flex flex-col gap-1">

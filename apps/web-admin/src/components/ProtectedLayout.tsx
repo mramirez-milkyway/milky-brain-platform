@@ -6,73 +6,103 @@ import { useAuthStore } from '@/lib/auth-store'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface User {
+  id: number
+  email: string
+  name: string
+  status: string
+  picture?: string
+}
+
+interface Permission {
+  policy: string
+  actions: string[]
+  resources: string[]
+}
+
+interface AuthData {
+  user: User
+  permissions: Permission[]
+}
+
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { setUser, setPermissions, startProactiveRefresh, stopProactiveRefresh } = useAuthStore()
+  const {
+    setUser,
+    setPermissions,
+    startProactiveRefresh,
+    stopProactiveRefresh,
+    user,
+    permissions,
+  } = useAuthStore()
 
-  // Fetch user data
-  const { data: userData, isLoading: userLoading } = useQuery({
-    queryKey: ['me'],
+  // Fetch both user AND permissions in a single atomic query
+  // This eliminates race conditions by ensuring both are loaded together
+  const {
+    data: authData,
+    isLoading,
+    error,
+  } = useQuery<AuthData>({
+    queryKey: ['auth-data'],
     queryFn: async () => {
-      const res = await apiClient.get('/auth/me')
-      return res.data
+      console.log('Fetching user and permissions atomically...')
+
+      // Fetch user
+      const userRes = await apiClient.get('/auth/me')
+      const userData = userRes.data
+
+      // Fetch permissions
+      const permissionsRes = await apiClient.get('/auth/me/permissions')
+      const permissionsData = permissionsRes.data.permissions
+
+      console.log('Fetched user:', userData)
+      console.log('Fetched permissions:', permissionsData)
+
+      return {
+        user: userData,
+        permissions: permissionsData,
+      }
     },
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes - not infinity to allow refetching
+    refetchOnWindowFocus: false,
   })
 
-  // Fetch permissions
-  const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
-    queryKey: ['permissions'],
-    queryFn: async () => {
-      const res = await apiClient.get('/auth/me/permissions')
-      console.log('Fetched permissions:', res.data.permissions) // Debug log
-      return res.data.permissions
-    },
-    retry: false,
-    enabled: !!userData, // Only fetch if user is authenticated
-    staleTime: Infinity, // Never mark as stale - permissions don't change during session
-    refetchOnMount: false, // Don't refetch on every mount
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-  })
-
+  // Single useEffect to set both user and permissions atomically
+  // This ensures Zustand store is updated in one synchronous batch
   useEffect(() => {
-    if (userData) {
-      setUser(userData)
-    } else if (!userLoading) {
+    if (authData) {
+      console.log('Setting user and permissions in store atomically')
+      // Update store in a single batch
+      setUser(authData.user)
+      setPermissions(authData.permissions)
+    } else if (error) {
+      console.error('Auth data fetch failed:', error)
       router.push('/login')
     }
-  }, [userData, userLoading, setUser, router])
-
-  useEffect(() => {
-    if (permissionsData) {
-      console.log('Setting permissions in store:', permissionsData)
-      setPermissions(permissionsData)
-    }
-  }, [permissionsData, setPermissions])
+  }, [authData, error, setUser, setPermissions, router])
 
   // Start proactive token refresh when user is authenticated
   useEffect(() => {
-    if (userData) {
+    if (authData?.user) {
       startProactiveRefresh()
     }
 
     return () => {
       stopProactiveRefresh()
     }
-  }, [userData, startProactiveRefresh, stopProactiveRefresh])
+  }, [authData?.user, startProactiveRefresh, stopProactiveRefresh])
 
-  const isLoading = userLoading || permissionsLoading
+  // Don't render until BOTH:
+  // 1. Query has completed successfully with data
+  // 2. Zustand store has been populated (checked via selectors)
+  const isStoreReady = user !== null && permissions.length >= 0
 
-  // Don't render children until both user AND permissions are loaded
-  if (isLoading || !userData || !permissionsData) {
+  if (isLoading || !authData || !isStoreReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-lg text-gray-700 dark:text-gray-300">
-          {userLoading
-            ? 'Loading user...'
-            : permissionsLoading
-              ? 'Loading permissions...'
-              : 'Loading...'}
+          {isLoading ? 'Loading authentication...' : 'Initializing...'}
         </div>
       </div>
     )

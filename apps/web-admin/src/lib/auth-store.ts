@@ -38,7 +38,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 // Route to permission mapping
 export const ROUTE_PERMISSIONS: Record<string, string> = {
-  '/users': 'user:Read',
+  '/users': 'user:Write', // User management requires write access
   '/users/invite': 'user:Create',
   '/roles': 'role:Read',
   '/policies': 'policy:Read',

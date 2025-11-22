@@ -423,7 +423,7 @@ function UsersContent() {
 
 export default function UsersPage() {
   return (
-    <PermissionGuard permission="user:Read">
+    <PermissionGuard permission="user:Write">
       <UsersContent />
     </PermissionGuard>
   )
