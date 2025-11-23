@@ -11,6 +11,9 @@ import { SettingsModule } from './settings/settings.module'
 import { AuditModule } from './audit/audit.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { NavigationModule } from './navigation/navigation.module'
+import { ExportControlsModule } from './export-controls/export-controls.module'
+import { PdfModule } from './pdf/pdf.module'
+import { InfluencersModule } from './influencers/influencers.module'
 import { AuditInterceptor } from './common/interceptors/audit.interceptor'
 import { AuditService } from './common/services/audit.service'
 import { RedisService } from './common/services/redis.service'
@@ -44,6 +47,9 @@ import { SessionService } from './auth/services/session.service'
     AuditModule,
     NotificationsModule,
     NavigationModule,
+    ExportControlsModule,
+    PdfModule,
+    InfluencersModule,
   ],
   providers: [
     {

@@ -53,6 +53,12 @@ const navItems: NavItem[] = [
     path: '/audit',
     permission: 'audit:Read', // Only users with audit:Read permission (typically Admin only)
   },
+  {
+    icon: <UserCircleIcon />,
+    name: 'Influencers',
+    path: '/influencers',
+    permission: 'influencer:Read', // Only users with influencer:Read permission
+  },
 ]
 
 // Additional navigation items
@@ -160,27 +166,21 @@ const AppSidebar: React.FC = () => {
       <div
         className={`py-8 flex ${!isExpanded && !isHovered ? 'xl:justify-center' : 'justify-start'}`}
       >
-        <Link href="/app">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-            </>
-          ) : (
-            <Image src="/images/logo/logo-icon.svg" alt="Logo" width={32} height={32} />
-          )}
+        <Link href="/">
+          <Image
+            src="/images/logo/milkyway-logo.svg"
+            alt="Milky Way Agency"
+            width={isExpanded || isHovered || isMobileOpen ? 150 : 32}
+            height={isExpanded || isHovered || isMobileOpen ? 40 : 32}
+            className="dark:hidden transition-all duration-300"
+          />
+          <Image
+            src="/images/logo/milkyway-logo-white.svg"
+            alt="Milky Way Agency"
+            width={isExpanded || isHovered || isMobileOpen ? 150 : 32}
+            height={isExpanded || isHovered || isMobileOpen ? 40 : 32}
+            className="hidden dark:block transition-all duration-300"
+          />
         </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">

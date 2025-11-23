@@ -48,6 +48,8 @@ async function main() {
             'notification:Read',
             'notification:Write',
             'navigation:Read',
+            'influencer:Read',
+            'influencer:Export',
           ],
           Resources: ['res:*'],
         },
@@ -66,6 +68,8 @@ async function main() {
             'settings:Read',
             'notification:Read',
             'navigation:Read',
+            'influencer:Read',
+            'influencer:Export',
           ],
           Resources: ['res:*'],
         },
@@ -156,6 +160,221 @@ async function main() {
       })
       console.log(`  ✓ Assigned Admin role to user: ${firstUser.email}`)
     }
+  }
+
+  // Create default export control settings for each role
+  const exportControlSettings = [
+    // Admin: Unlimited access, no watermark, no time limits
+    {
+      roleName: 'Admin',
+      exportType: 'all',
+      rowLimit: -1,
+      enableWatermark: false,
+      dailyLimit: null,
+      monthlyLimit: null,
+    },
+    // Editor: 100 rows, watermark enabled, 20/day, 200/month
+    {
+      roleName: 'Editor',
+      exportType: 'all',
+      rowLimit: 100,
+      enableWatermark: true,
+      dailyLimit: 20,
+      monthlyLimit: 200,
+    },
+    // Viewer: 50 rows, watermark enabled, 10/day, 50/month
+    {
+      roleName: 'Viewer',
+      exportType: 'all',
+      rowLimit: 50,
+      enableWatermark: true,
+      dailyLimit: 10,
+      monthlyLimit: 50,
+    },
+  ]
+
+  console.log('Creating default export control settings...')
+  for (const setting of exportControlSettings) {
+    const role = await prisma.role.findUnique({ where: { name: setting.roleName } })
+
+    if (role) {
+      await prisma.exportControlSettings.upsert({
+        where: {
+          unique_role_export_type: {
+            roleId: role.id,
+            exportType: setting.exportType,
+          },
+        },
+        update: {},
+        create: {
+          roleId: role.id,
+          exportType: setting.exportType,
+          rowLimit: setting.rowLimit,
+          enableWatermark: setting.enableWatermark,
+          dailyLimit: setting.dailyLimit,
+          monthlyLimit: setting.monthlyLimit,
+        },
+      })
+      console.log(`  ✓ Created export control setting for ${setting.roleName}`)
+    }
+  }
+
+  // Create mock influencer data for testing
+  const mockInfluencers = [
+    {
+      name: 'Sarah Johnson',
+      platform: 'Instagram',
+      followers: 125000,
+      engagement: 4.2,
+      category: 'Fashion',
+    },
+    {
+      name: 'Mike Chen',
+      platform: 'YouTube',
+      followers: 890000,
+      engagement: 6.8,
+      category: 'Technology',
+    },
+    {
+      name: 'Emma Rodriguez',
+      platform: 'TikTok',
+      followers: 2100000,
+      engagement: 8.5,
+      category: 'Lifestyle',
+    },
+    {
+      name: 'Alex Thompson',
+      platform: 'Instagram',
+      followers: 450000,
+      engagement: 5.1,
+      category: 'Fitness',
+    },
+    {
+      name: 'Lisa Park',
+      platform: 'YouTube',
+      followers: 320000,
+      engagement: 4.9,
+      category: 'Beauty',
+    },
+    {
+      name: 'David Kim',
+      platform: 'TikTok',
+      followers: 1500000,
+      engagement: 7.3,
+      category: 'Comedy',
+    },
+    {
+      name: 'Rachel Green',
+      platform: 'Instagram',
+      followers: 680000,
+      engagement: 5.6,
+      category: 'Travel',
+    },
+    {
+      name: 'Tom Wilson',
+      platform: 'YouTube',
+      followers: 1200000,
+      engagement: 6.2,
+      category: 'Gaming',
+    },
+    {
+      name: 'Sophie Brown',
+      platform: 'Instagram',
+      followers: 290000,
+      engagement: 4.8,
+      category: 'Food',
+    },
+    {
+      name: 'Chris Lee',
+      platform: 'TikTok',
+      followers: 950000,
+      engagement: 7.1,
+      category: 'Music',
+    },
+    {
+      name: 'Maya Patel',
+      platform: 'Instagram',
+      followers: 540000,
+      engagement: 5.3,
+      category: 'Fashion',
+    },
+    {
+      name: 'Jake Anderson',
+      platform: 'YouTube',
+      followers: 780000,
+      engagement: 5.9,
+      category: 'Technology',
+    },
+    {
+      name: 'Olivia Martinez',
+      platform: 'TikTok',
+      followers: 1800000,
+      engagement: 8.2,
+      category: 'Dance',
+    },
+    {
+      name: 'Ryan Taylor',
+      platform: 'Instagram',
+      followers: 410000,
+      engagement: 4.6,
+      category: 'Fitness',
+    },
+    {
+      name: 'Jessica White',
+      platform: 'YouTube',
+      followers: 620000,
+      engagement: 5.4,
+      category: 'Education',
+    },
+    {
+      name: 'Kevin Garcia',
+      platform: 'Instagram',
+      followers: 850000,
+      engagement: 6.1,
+      category: 'Sports',
+    },
+    {
+      name: 'Amanda Scott',
+      platform: 'TikTok',
+      followers: 1100000,
+      engagement: 7.5,
+      category: 'Lifestyle',
+    },
+    {
+      name: 'Daniel Harris',
+      platform: 'YouTube',
+      followers: 490000,
+      engagement: 5.2,
+      category: 'DIY',
+    },
+    {
+      name: 'Nicole Clark',
+      platform: 'Instagram',
+      followers: 730000,
+      engagement: 5.8,
+      category: 'Beauty',
+    },
+    {
+      name: 'Brandon Lewis',
+      platform: 'TikTok',
+      followers: 1300000,
+      engagement: 7.8,
+      category: 'Comedy',
+    },
+  ]
+
+  console.log('Creating mock influencer data...')
+  const existingInfluencers = await prisma.influencer.count()
+
+  if (existingInfluencers === 0) {
+    for (const influencer of mockInfluencers) {
+      await prisma.influencer.create({
+        data: influencer,
+      })
+    }
+    console.log(`  ✓ Created ${mockInfluencers.length} mock influencers`)
+  } else {
+    console.log(`  ℹ Skipped - ${existingInfluencers} influencers already exist`)
   }
 
   console.log('Database seed completed!')

@@ -47,8 +47,9 @@ model Role {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relationships
-  userRoles    UserRole[]
-  rolePolicies RolePolicy[]
+  userRoles             UserRole[]
+  rolePolicies          RolePolicy[]
+  exportControlSettings ExportControlSettings[]
 
   @@index([name])
   @@map("roles")
@@ -231,21 +232,25 @@ enum JobStatus {
   RETRYING
 }
 
-// ExportLog model
+// ExportLog model - tracks export quota consumption
 model ExportLog {
   id                 Int               @id @default(autoincrement())
   userId             Int               @map("user_id")
-  objectRef          String            @map("object_ref")
+  exportType         String            @map("export_type") // 'influencer_list', 'report', etc.
   rowCount           Int               @map("row_count")
-  destination        ExportDestination
+  objectRef          String?           @map("object_ref") // Legacy field, optional
+  destination        ExportDestination @default(DOWNLOAD)
   shareLinkToken     String?           @unique @map("share_link_token")
   shareLinkExpiresAt DateTime?         @map("share_link_expires_at")
   watermark          String?
+  exportedAt         DateTime          @default(now()) @map("exported_at")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, exportedAt])
+  @@index([exportType])
   @@index([userId])
   @@map("export_logs")
 }
@@ -253,6 +258,38 @@ model ExportLog {
 enum ExportDestination {
   DOWNLOAD
   SHARE_LINK
+}
+
+// ExportControlSettings model - role-based export limits
+model ExportControlSettings {
+  id              Int      @id @default(autoincrement())
+  roleId          Int      @map("role_id")
+  exportType      String   @map("export_type") // 'all', 'influencer_list', 'report', etc.
+  rowLimit        Int      @map("row_limit") // -1 for unlimited
+  enableWatermark Boolean  @default(true) @map("enable_watermark")
+  dailyLimit      Int?     @map("daily_limit") // Max exports per day (null = no limit)
+  monthlyLimit    Int?     @map("monthly_limit") // Max exports per month (null = no limit)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, exportType], name: "unique_role_export_type")
+  @@index([roleId])
+  @@map("export_control_settings")
+}
+
+// Influencer model - mock data for testing export controls
+model Influencer {
+  id         Int      @id @default(autoincrement())
+  name       String
+  platform   String
+  followers  Int
+  engagement Float
+  category   String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("influencers")
 }
 
 // Notification model

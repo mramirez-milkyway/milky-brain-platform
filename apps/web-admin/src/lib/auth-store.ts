@@ -32,8 +32,23 @@ interface AuthState {
 // Role-based permission mapping (simplified - matches backend RBAC)
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   Admin: ['*'], // All permissions
-  Editor: ['user:Read', 'settings:Read', 'settings:Write', 'content:*', 'navigation:*'],
-  Viewer: ['user:Read', 'settings:Read', 'content:Read', 'navigation:Read'],
+  Editor: [
+    'user:Read',
+    'settings:Read',
+    'settings:Write',
+    'content:*',
+    'navigation:*',
+    'influencer:Read',
+    'influencer:Export',
+  ],
+  Viewer: [
+    'user:Read',
+    'settings:Read',
+    'content:Read',
+    'navigation:Read',
+    'influencer:Read',
+    'influencer:Export',
+  ],
 }
 
 // Route to permission mapping
@@ -45,6 +60,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/settings': 'settings:Read',
   '/audit': 'audit:Read',
   '/navigation': 'navigation:Read',
+  '/influencers': 'influencer:Read',
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
