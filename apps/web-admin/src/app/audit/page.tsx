@@ -243,8 +243,8 @@ function AuditContent() {
 
       {/* Detail Modal */}
       {isModalOpen && selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-2xl p-6 bg-white rounded-lg dark:bg-gray-900">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center bg-gray-400/50 backdrop-blur-[32px]">
+          <div className="w-full max-w-2xl p-6 bg-white rounded-lg dark:bg-gray-900 relative">
             <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Event Details</h2>
             <div className="space-y-4">
               <div>
@@ -275,9 +275,15 @@ function AuditContent() {
               </div>
               <div>
                 <Label>Metadata</Label>
-                <pre className="p-4 overflow-x-auto text-sm text-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
-                  {JSON.stringify(selectedEvent.metadata, null, 2)}
-                </pre>
+                {selectedEvent.metadata && Object.keys(selectedEvent.metadata).length > 0 ? (
+                  <pre className="p-4 overflow-x-auto text-sm text-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
+                    {JSON.stringify(selectedEvent.metadata, null, 2)}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                    No metadata available
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-end mt-6">

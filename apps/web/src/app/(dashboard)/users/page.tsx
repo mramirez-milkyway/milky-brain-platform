@@ -281,8 +281,8 @@ export default function UsersPage() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-gray-400/50 backdrop-blur-[32px] flex items-center justify-center z-99999">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
             <h2 className="text-xl font-bold mb-4">Invite User</h2>
             <div className="space-y-4">
               <div>
@@ -358,8 +358,8 @@ export default function UsersPage() {
 
       {/* Deactivate Confirmation Modal */}
       {showDeactivateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-gray-400/50 backdrop-blur-[32px] flex items-center justify-center z-99999">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
             <h2 className="text-xl font-bold text-red-600 mb-4">Confirm Deactivation</h2>
             <p className="text-gray-700 mb-6">
               Are you sure you want to deactivate this user? They will be immediately logged out and
@@ -386,8 +386,8 @@ export default function UsersPage() {
 
       {/* Cancel Invitation Confirmation Modal */}
       {showCancelInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-gray-400/50 backdrop-blur-[32px] flex items-center justify-center z-99999">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
             <h2 className="text-xl font-bold text-red-600 mb-4">Cancel Invitation</h2>
             <p className="text-gray-700 mb-6">
               Are you sure you want to cancel this invitation? The user will not be able to accept

@@ -288,8 +288,8 @@ function UsersContent() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-900">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center bg-gray-400/50 backdrop-blur-[32px]">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-900 relative">
             <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Invite User</h2>
             <div className="space-y-4">
               <div>
@@ -366,8 +366,8 @@ function UsersContent() {
 
       {/* Deactivate Modal */}
       {showDeactivateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-900">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center bg-gray-400/50 backdrop-blur-[32px]">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-900 relative">
             <h2 className="mb-4 text-xl font-bold text-error-600 dark:text-error-400">
               Confirm Deactivation
             </h2>
@@ -393,8 +393,8 @@ function UsersContent() {
 
       {/* Cancel Invitation Modal */}
       {showCancelInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-900">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center bg-gray-400/50 backdrop-blur-[32px]">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg dark:bg-gray-900 relative">
             <h2 className="mb-4 text-xl font-bold text-error-600 dark:text-error-400">
               Cancel Invitation
             </h2>

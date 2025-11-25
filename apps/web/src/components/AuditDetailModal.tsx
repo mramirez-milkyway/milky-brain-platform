@@ -86,10 +86,10 @@ export function AuditDetailModal({ event, isOpen, onClose }: AuditDetailModalPro
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-99999 overflow-y-auto" onClick={onClose}>
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" />
+        <div className="fixed inset-0 transition-opacity bg-gray-400/50 backdrop-blur-[32px]" />
 
         {/* Center modal */}
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
@@ -108,7 +108,12 @@ export function AuditDetailModal({ event, isOpen, onClose }: AuditDetailModalPro
                 className="text-gray-400 hover:text-gray-500 focus:outline-none"
               >
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -128,7 +133,9 @@ export function AuditDetailModal({ event, isOpen, onClose }: AuditDetailModalPro
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">User</h4>
-                <p className="text-sm text-gray-900">{event.actor?.name || `User ${event.actorId}`}</p>
+                <p className="text-sm text-gray-900">
+                  {event.actor?.name || `User ${event.actorId}`}
+                </p>
                 <p className="text-xs text-gray-500">{event.actor?.email}</p>
               </div>
               <div>
@@ -178,7 +185,17 @@ export function AuditDetailModal({ event, isOpen, onClose }: AuditDetailModalPro
                 </div>
                 <div>
                   <span className="text-xs text-gray-500 uppercase">User Agent:</span>
-                  <p className="text-sm font-mono text-xs">{event.userAgent || 'N/A'}</p>
+                  <p className="text-sm font-mono text-xs break-all">{event.userAgent || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500 uppercase">Metadata:</span>
+                  {event.metadata && Object.keys(event.metadata).length > 0 ? (
+                    <pre className="mt-1 text-sm font-mono text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                      {JSON.stringify(event.metadata, null, 2)}
+                    </pre>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">No metadata available</p>
+                  )}
                 </div>
               </div>
             </details>
