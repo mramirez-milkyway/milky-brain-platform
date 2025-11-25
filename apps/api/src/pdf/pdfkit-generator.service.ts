@@ -36,17 +36,27 @@ export class PdfKitGeneratorService implements IPdfGenerator {
     const pageWidth = doc.page.width
     const pageHeight = doc.page.height
 
+    // Save current position and state
+    const currentY = doc.y
+
     doc.save()
+
+    // Position watermark in the center without affecting document flow
     doc.rotate(rotation, { origin: [pageWidth / 2, pageHeight / 2] })
     doc
       .fontSize(fontSize)
       .fillColor(color)
       .opacity(opacity)
-      .text(text, 0, pageHeight / 2, {
+      .text(text, 0, pageHeight / 2 - fontSize / 2, {
         align: 'center',
         width: pageWidth,
+        lineBreak: false,
       })
+
     doc.restore()
+
+    // Restore the Y position so content continues from where it was
+    doc.y = currentY
   }
 
   addTable(document: unknown, data: unknown[], options: TableOptions): void {
