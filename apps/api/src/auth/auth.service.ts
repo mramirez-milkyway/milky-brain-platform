@@ -46,7 +46,7 @@ export class AuthService {
     private configService: ConfigService
   ) {}
 
-  async validateGoogleUser(profile: { email: string; name: string }) {
+  async validateGoogleUser(profile: { email: string; name: string }, allowInvited = false) {
     // Validate domain restriction
     const allowedDomains = this.configService
       .get<string>('ALLOWED_INVITE_DOMAINS')
@@ -77,15 +77,22 @@ export class AuthService {
       )
     }
 
-    // If user is INVITED, this is first-time login - keep status as INVITED
-    // The acceptInvitation flow will handle activation
-    // If user is ACTIVE, allow normal login
+    // If user is INVITED, they must use the invitation acceptance flow
+    // unless this is being called from the acceptance flow itself
+    if (user.status === 'INVITED' && !allowInvited) {
+      throw new UnauthorizedException(
+        'Please accept your invitation first using the link sent to your email.'
+      )
+    }
 
-    // Update last seen
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastSeenAt: new Date() },
-    })
+    // Only ACTIVE users can log in via regular OAuth flow (or INVITED during acceptance)
+    // Update last seen only for ACTIVE users
+    if (user.status === 'ACTIVE') {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastSeenAt: new Date() },
+      })
+    }
 
     return user
   }
@@ -337,6 +344,9 @@ export class AuthService {
   }
 
   async acceptInvitation(token: string, googleProfile: { email: string; name: string }) {
+    // Validate the Google user with allowInvited=true to bypass INVITED status check
+    await this.validateGoogleUser(googleProfile, true)
+
     // Find invitation by token
     const invitation = await this.prisma.userInvitation.findUnique({
       where: { token },
@@ -365,9 +375,9 @@ export class AuthService {
     }
 
     // Activate user and delete invitation token in a transaction
-    await this.prisma.$transaction(async (tx) => {
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
       // Update user status and name
-      await tx.user.update({
+      const user = await tx.user.update({
         where: { id: invitation.userId },
         data: {
           status: 'ACTIVE',
@@ -380,12 +390,11 @@ export class AuthService {
       await tx.userInvitation.delete({
         where: { id: invitation.id },
       })
+
+      return user
     })
 
-    // Return the activated user
-    return this.prisma.user.findUnique({
-      where: { id: invitation.userId },
-    })
+    return updatedUser
   }
 
   async verifyInvitationToken(token: string) {

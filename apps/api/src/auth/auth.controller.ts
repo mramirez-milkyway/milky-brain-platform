@@ -36,7 +36,21 @@ export class AuthController {
   @Get('google/callback')
   @SkipCsrf()
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
+  async googleAuthRedirect(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('state') state?: string
+  ) {
+    // Check if this is an invitation acceptance flow
+    // Check both cookie and state parameter (state is more reliable for cross-site redirects)
+    const invitationToken = state || req.cookies?.invitation_token
+
+    if (invitationToken) {
+      // Handle invitation acceptance
+      return this.handleInvitationCallback(req, res, invitationToken)
+    }
+
+    // Regular login flow
     try {
       const user = await this.authService.validateGoogleUser(req.user as any)
       const { access_token, refresh_token } = await this.authService.login(
@@ -89,6 +103,8 @@ export class AuthController {
         errorCode = 'invalid_domain'
       } else if (errorMessage.includes('No invitation found')) {
         errorCode = 'no_invitation'
+      } else if (errorMessage.includes('accept your invitation')) {
+        errorCode = 'pending_invitation'
       } else if (errorMessage.includes('deactivated')) {
         errorCode = 'account_deactivated'
       }
@@ -198,33 +214,26 @@ export class AuthController {
 
   @Get('accept-invitation')
   @SkipCsrf()
-  @UseGuards(AuthGuard('google'))
   async acceptInvitationAuth(@Query('token') token: string, @Res() res: Response) {
     if (!token) {
       throw new BadRequestException('Token is required')
     }
-    // Store token in session for callback
+
+    // Store token in cookie with proper settings for cross-site redirects
     res.cookie('invitation_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 10 * 60 * 1000, // 10 minutes
+      path: '/',
     })
-    // Initiates Google OAuth flow
+
+    // Manually redirect to Google OAuth with state parameter
+    const apiUrl = process.env.API_URL || 'http://localhost:4000/api'
+    return res.redirect(`${apiUrl}/auth/google?state=${encodeURIComponent(token)}`)
   }
 
-  @Get('accept-invitation/callback')
-  @SkipCsrf()
-  @UseGuards(AuthGuard('google'))
-  async acceptInvitationCallback(@Req() req: Request, @Res() res: Response) {
-    const token = req.cookies?.invitation_token
-
-    if (!token) {
-      return res.redirect(
-        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/accept-invite?error=missing_token`
-      )
-    }
-
+  private async handleInvitationCallback(req: Request, res: Response, token: string) {
     try {
       const user = await this.authService.acceptInvitation(token, req.user as any)
 
@@ -274,7 +283,7 @@ export class AuthController {
       // Also send in header
       res.setHeader('X-CSRF-Token', csrfToken)
 
-      res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000')
+      return res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000')
     } catch (error) {
       res.clearCookie('invitation_token')
       const errorMessage = error.message || 'Unknown error'
