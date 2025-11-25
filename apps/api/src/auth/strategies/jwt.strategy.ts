@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt'
 import { ConfigService } from '@nestjs/config'
 import { Request } from 'express'
 import { SessionService } from '../services/session.service'
+import { PrismaClient } from '@prisma/client'
 
 interface JwtPayload {
   sub: number
@@ -17,7 +18,8 @@ interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
-    private sessionService: SessionService
+    private sessionService: SessionService,
+    private prisma: PrismaClient
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -30,7 +32,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     })
   }
 
-  async validate(payload: JwtPayload): Promise<{ userId: number; email: string }> {
+  async validate(
+    payload: JwtPayload
+  ): Promise<{ userId: number; email: string; roleIds: number[] }> {
     // Check if token is blacklisted
     if (payload.jti) {
       const isBlacklisted = await this.sessionService.isTokenBlacklisted(payload.jti)
@@ -39,6 +43,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    return { userId: payload.sub, email: payload.email }
+    // Fetch user's role IDs
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId: payload.sub },
+      select: { roleId: true },
+    })
+
+    const roleIds = userRoles.map((ur) => ur.roleId)
+
+    console.log(
+      '[DEBUG] JWT Strategy - userId:',
+      payload.sub,
+      'email:',
+      payload.email,
+      'roleIds:',
+      roleIds
+    )
+
+    return { userId: payload.sub, email: payload.email, roleIds }
   }
 }

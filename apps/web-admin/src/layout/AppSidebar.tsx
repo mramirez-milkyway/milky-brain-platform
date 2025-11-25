@@ -67,7 +67,7 @@ const additionalItems: NavItem[] = [
     icon: <PageIcon />,
     name: 'Settings',
     path: '/settings',
-    permission: 'settings:Read', // Only users with settings:Read permission
+    permission: 'settings:Write', // Only Admin can access settings (Write implies manage permission)
   },
   {
     icon: <GridIcon />,

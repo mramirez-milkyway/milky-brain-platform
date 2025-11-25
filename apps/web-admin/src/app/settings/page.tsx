@@ -63,7 +63,7 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <PermissionGuard permission="settings:Read">
+    <PermissionGuard permission="settings:Write">
       <SettingsContent />
     </PermissionGuard>
   )

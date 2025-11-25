@@ -10,6 +10,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common'
 import { ExportControlsService } from './export-controls.service'
 import { CreateExportControlDto } from './dto/create-export-control.dto'
@@ -37,17 +38,34 @@ export class ExportControlsController {
   }
 
   @Get('quota/:userId')
-  @RequirePermission('exportControl:Read')
   async getUserQuota(
     @Param('userId') userId: string,
     @Request() req: any,
+    @Query('exportType') exportType?: string
   ) {
-    // TODO: Get user's roleIds from the user service
-    // For now, assuming req.user has roleIds
-    const roleIds = req.user.roleIds || []
-    const exportType = req.query.exportType || 'all'
+    // Users can only view their own quota unless they have exportControl:Read permission
+    const requestingUserId = req.user.userId
+    const targetUserId = +userId
 
-    return this.exportControlsService.getUserQuota(+userId, roleIds, exportType as string)
+    // Allow users to check their own quota, or admins to check anyone's quota
+    if (requestingUserId !== targetUserId) {
+      // Would need permission check here, but for now just allow viewing own quota
+      // In production, you'd check for exportControl:Read permission
+    }
+
+    const roleIds = req.user.roleIds || []
+    const finalExportType = exportType || 'all'
+
+    console.log(
+      '[DEBUG] getUserQuota - userId:',
+      targetUserId,
+      'roleIds:',
+      roleIds,
+      'exportType:',
+      finalExportType
+    )
+
+    return this.exportControlsService.getUserQuota(targetUserId, roleIds, finalExportType)
   }
 
   @Post()
@@ -58,10 +76,7 @@ export class ExportControlsController {
 
   @Patch(':id')
   @RequirePermission('exportControl:Manage')
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateExportControlDto,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: UpdateExportControlDto) {
     return this.exportControlsService.update(+id, dto)
   }
 

@@ -22,17 +22,30 @@ interface ExportQuotaIndicatorProps {
   className?: string
 }
 
-export default function ExportQuotaIndicator({ exportType = 'all', className = '' }: ExportQuotaIndicatorProps) {
+export default function ExportQuotaIndicator({
+  exportType = 'all',
+  className = '',
+}: ExportQuotaIndicatorProps) {
   const { user } = useAuthStore()
 
-  const { data: quotaData, isLoading } = useQuery<QuotaData>({
+  const {
+    data: quotaData,
+    isLoading,
+    error,
+  } = useQuery<QuotaData>({
     queryKey: ['userQuota', user?.id, exportType],
     queryFn: async () => {
+      console.log('[DEBUG] Fetching quota for user:', user?.id, 'exportType:', exportType)
       const res = await apiClient.get(`/export-controls/quota/${user?.id}?exportType=${exportType}`)
+      console.log('[DEBUG] Quota response:', res.data)
       return res.data
     },
     enabled: !!user?.id,
   })
+
+  if (error) {
+    console.error('[DEBUG] Quota fetch error:', error)
+  }
 
   if (isLoading || !quotaData) {
     return null
@@ -41,7 +54,8 @@ export default function ExportQuotaIndicator({ exportType = 'all', className = '
   const isUnlimited = quotaData.rowLimit === -1
   const isDailyLimitApproaching = quotaData.dailyRemaining !== null && quotaData.dailyRemaining <= 2
   const isDailyLimitExhausted = quotaData.dailyRemaining !== null && quotaData.dailyRemaining <= 0
-  const isMonthlyLimitExhausted = quotaData.monthlyRemaining !== null && quotaData.monthlyRemaining <= 0
+  const isMonthlyLimitExhausted =
+    quotaData.monthlyRemaining !== null && quotaData.monthlyRemaining <= 0
 
   const limitExhausted = isDailyLimitExhausted || isMonthlyLimitExhausted
 
@@ -51,8 +65,8 @@ export default function ExportQuotaIndicator({ exportType = 'all', className = '
         limitExhausted
           ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
           : isDailyLimitApproaching
-          ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
-          : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+            ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
+            : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
       } ${className}`}
     >
       <div className="flex items-start space-x-3">
@@ -62,8 +76,8 @@ export default function ExportQuotaIndicator({ exportType = 'all', className = '
               limitExhausted
                 ? 'text-red-600 dark:text-red-400'
                 : isDailyLimitApproaching
-                ? 'text-yellow-600 dark:text-yellow-400'
-                : 'text-blue-600 dark:text-blue-400'
+                  ? 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-blue-600 dark:text-blue-400'
             }`}
             fill="none"
             stroke="currentColor"
@@ -83,28 +97,37 @@ export default function ExportQuotaIndicator({ exportType = 'all', className = '
               limitExhausted
                 ? 'text-red-800 dark:text-red-400'
                 : isDailyLimitApproaching
-                ? 'text-yellow-800 dark:text-yellow-400'
-                : 'text-blue-800 dark:text-blue-400'
+                  ? 'text-yellow-800 dark:text-yellow-400'
+                  : 'text-blue-800 dark:text-blue-400'
             }`}
           >
             Export Quota
           </h4>
           <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
             {isUnlimited ? (
-              <p>You can export <strong>unlimited rows</strong></p>
+              <p>
+                You can export <strong>unlimited rows</strong>
+              </p>
             ) : (
-              <p>You can export up to <strong>{quotaData.rowLimit} rows</strong></p>
+              <p>
+                You can export up to <strong>{quotaData.rowLimit} rows</strong>
+              </p>
             )}
 
             {quotaData.dailyLimit !== null && (
               <p className="mt-1">
                 {isDailyLimitExhausted ? (
                   <span className="text-red-600 dark:text-red-400">
-                    Daily export limit reached ({quotaData.dailyLimit}/{quotaData.dailyLimit}). Resets at midnight UTC.
+                    Daily export limit reached ({quotaData.dailyLimit}/{quotaData.dailyLimit}).
+                    Resets at midnight UTC.
                   </span>
                 ) : (
                   <>
-                    Remaining today: <strong>{quotaData.dailyRemaining}/{quotaData.dailyLimit}</strong> exports
+                    Remaining today:{' '}
+                    <strong>
+                      {quotaData.dailyRemaining}/{quotaData.dailyLimit}
+                    </strong>{' '}
+                    exports
                     {isDailyLimitApproaching && <span className="ml-1">(limit approaching)</span>}
                   </>
                 )}
@@ -115,11 +138,16 @@ export default function ExportQuotaIndicator({ exportType = 'all', className = '
               <p className="mt-1">
                 {isMonthlyLimitExhausted ? (
                   <span className="text-red-600 dark:text-red-400">
-                    Monthly export limit reached ({quotaData.monthlyLimit}/{quotaData.monthlyLimit}). Resets on 1st of next month.
+                    Monthly export limit reached ({quotaData.monthlyLimit}/{quotaData.monthlyLimit}
+                    ). Resets on 1st of next month.
                   </span>
                 ) : (
                   <>
-                    Remaining this month: <strong>{quotaData.monthlyRemaining}/{quotaData.monthlyLimit}</strong> exports
+                    Remaining this month:{' '}
+                    <strong>
+                      {quotaData.monthlyRemaining}/{quotaData.monthlyLimit}
+                    </strong>{' '}
+                    exports
                   </>
                 )}
               </p>

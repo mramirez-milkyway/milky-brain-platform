@@ -31,7 +31,7 @@ async function main() {
     },
     {
       name: 'EditorAccess',
-      description: 'Can create, read, update content and manage settings',
+      description: 'Can create, read, update content',
       statements: [
         {
           Effect: 'Allow',
@@ -42,9 +42,6 @@ async function main() {
             'user:Invite',
             'role:Read',
             'policy:Read',
-            'settings:Read',
-            'settings:Write',
-            'settings:Update',
             'notification:Read',
             'notification:Write',
             'navigation:Read',
@@ -81,7 +78,10 @@ async function main() {
   for (const policyData of policies) {
     await prisma.policy.upsert({
       where: { name: policyData.name },
-      update: {},
+      update: {
+        description: policyData.description,
+        statements: policyData.statements,
+      },
       create: policyData,
     })
     console.log(`  ✓ ${policyData.name}`)

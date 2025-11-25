@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common'
 import { ExportControlsRepository } from './export-controls.repository'
 import { CreateExportControlDto } from './dto/create-export-control.dto'
 import { UpdateExportControlDto } from './dto/update-export-control.dto'
@@ -81,7 +86,8 @@ export class ExportControlsService {
 
     // Validate daily limit doesn't exceed monthly limit
     const newDailyLimit = dto.dailyLimit !== undefined ? dto.dailyLimit : existing.dailyLimit
-    const newMonthlyLimit = dto.monthlyLimit !== undefined ? dto.monthlyLimit : existing.monthlyLimit
+    const newMonthlyLimit =
+      dto.monthlyLimit !== undefined ? dto.monthlyLimit : existing.monthlyLimit
 
     if (newDailyLimit && newMonthlyLimit && newDailyLimit > newMonthlyLimit) {
       throw new BadRequestException('Daily limit cannot exceed monthly limit')
@@ -109,9 +115,24 @@ export class ExportControlsService {
     await this.repository.delete(id)
   }
 
-  async getUserQuota(userId: number, roleIds: number[], exportType: string): Promise<UserQuotaResponseDto> {
+  async getUserQuota(
+    userId: number,
+    roleIds: number[],
+    exportType: string
+  ): Promise<UserQuotaResponseDto> {
+    console.log(
+      '[DEBUG] getUserQuota service - userId:',
+      userId,
+      'roleIds:',
+      roleIds,
+      'exportType:',
+      exportType
+    )
+
     // Get export control settings for user's roles
     const settings = await this.repository.findByRoleIds(roleIds, exportType)
+
+    console.log('[DEBUG] Found settings:', settings)
 
     if (settings.length === 0) {
       throw new NotFoundException(`No export control settings found for the user's roles`)
@@ -124,7 +145,8 @@ export class ExportControlsService {
 
       return {
         ...prev,
-        rowLimit: Math.max(prevLimit, currLimit) === Infinity ? -1 : Math.max(prev.rowLimit, curr.rowLimit),
+        rowLimit:
+          Math.max(prevLimit, currLimit) === Infinity ? -1 : Math.max(prev.rowLimit, curr.rowLimit),
         enableWatermark: prev.enableWatermark && curr.enableWatermark, // Only watermark if ALL roles require it
         dailyLimit: Math.max(prev.dailyLimit ?? 0, curr.dailyLimit ?? 0) || null,
         monthlyLimit: Math.max(prev.monthlyLimit ?? 0, curr.monthlyLimit ?? 0) || null,
@@ -136,7 +158,9 @@ export class ExportControlsService {
     const monthlyUsed = await this.repository.countExportsThisMonth(userId, exportType)
 
     const dailyRemaining = mostPermissive.dailyLimit ? mostPermissive.dailyLimit - dailyUsed : null
-    const monthlyRemaining = mostPermissive.monthlyLimit ? mostPermissive.monthlyLimit - monthlyUsed : null
+    const monthlyRemaining = mostPermissive.monthlyLimit
+      ? mostPermissive.monthlyLimit - monthlyUsed
+      : null
 
     return {
       userId,
@@ -152,7 +176,11 @@ export class ExportControlsService {
     }
   }
 
-  async checkQuotaAvailable(userId: number, roleIds: number[], exportType: string): Promise<boolean> {
+  async checkQuotaAvailable(
+    userId: number,
+    roleIds: number[],
+    exportType: string
+  ): Promise<boolean> {
     const quota = await this.getUserQuota(userId, roleIds, exportType)
 
     // Check daily limit
@@ -161,7 +189,11 @@ export class ExportControlsService {
     }
 
     // Check monthly limit
-    if (quota.monthlyLimit !== null && quota.monthlyRemaining !== null && quota.monthlyRemaining <= 0) {
+    if (
+      quota.monthlyLimit !== null &&
+      quota.monthlyRemaining !== null &&
+      quota.monthlyRemaining <= 0
+    ) {
       return false
     }
 

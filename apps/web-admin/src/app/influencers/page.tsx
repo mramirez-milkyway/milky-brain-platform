@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Button from '@/components/ui/button/Button'
 import PermissionGuard from '@/components/PermissionGuard'
 import ExportQuotaIndicator from '@/components/export/ExportQuotaIndicator'
+import { Modal } from '@/components/ui/modal'
 
 interface Influencer {
   id: number
@@ -57,6 +58,17 @@ function InfluencersContent() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [isExporting, setIsExporting] = useState(false)
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
 
   // Fetch influencers
   const { data: influencersData, isLoading } = useQuery({
@@ -98,15 +110,29 @@ function InfluencersContent() {
       queryClient.invalidateQueries({ queryKey: ['userQuota'] })
 
       // Show success message
-      alert('PDF exported successfully!')
+      setModalState({
+        isOpen: true,
+        type: 'success',
+        title: 'Export Successful',
+        message: 'Your PDF has been downloaded successfully.',
+      })
     } catch (error: any) {
+      let errorMessage = 'Failed to export PDF. Please try again.'
+
       if (error.response?.status === 429) {
-        alert(error.response?.data?.message || 'Export limit reached. Please try again later.')
+        errorMessage =
+          error.response?.data?.message || 'Export limit reached. Please try again later.'
       } else if (error.response?.status === 403) {
-        alert('You do not have permission to export.')
-      } else {
-        alert('Failed to export PDF. Please try again.')
+        errorMessage = 'You do not have permission to export.'
       }
+
+      setModalState({
+        isOpen: true,
+        type: 'error',
+        title: 'Export Failed',
+        message: errorMessage,
+      })
+
       console.error('Export error:', error)
     } finally {
       setIsExporting(false)
@@ -228,6 +254,68 @@ function InfluencersContent() {
           </div>
         )}
       </div>
+
+      {/* Modal for success/error messages */}
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+        className="max-w-md mx-auto p-6"
+      >
+        <div className="text-center">
+          {/* Icon */}
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
+            {modalState.type === 'success' ? (
+              <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
+                <svg
+                  className="h-6 w-6 text-green-600 dark:text-green-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            ) : (
+              <div className="rounded-full bg-red-100 p-3 dark:bg-red-900">
+                <svg
+                  className="h-6 w-6 text-red-600 dark:text-red-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            {modalState.title}
+          </h3>
+
+          {/* Message */}
+          <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">{modalState.message}</p>
+
+          {/* Close Button */}
+          <Button
+            onClick={() => setModalState({ ...modalState, isOpen: false })}
+            className="w-full"
+          >
+            Close
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }

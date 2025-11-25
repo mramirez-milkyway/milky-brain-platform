@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
 import { ConfigService } from '@nestjs/config'
+import { PrismaClient } from '@prisma/client'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { GoogleStrategy } from './strategies/google.strategy'
@@ -22,7 +23,15 @@ import { RedisService } from '../common/services/redis.service'
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy, RbacService, SessionService, RedisService],
+  providers: [
+    AuthService,
+    GoogleStrategy,
+    JwtStrategy,
+    RbacService,
+    SessionService,
+    RedisService,
+    PrismaClient,
+  ],
   exports: [AuthService, SessionService],
 })
 export class AuthModule {}
