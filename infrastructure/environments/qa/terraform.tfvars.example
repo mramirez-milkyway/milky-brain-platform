@@ -1,0 +1,35 @@
+# QA Environment Configuration Example
+# Copy this file to terraform.tfvars and fill in the values
+
+# AWS Configuration
+aws_region  = "eu-south-2"
+environment = "qa"
+
+# Database Configuration
+db_master_password = "CHANGE_ME_STRONG_PASSWORD"
+
+# SSH Configuration (choose one approach)
+# Option 1: Create new key pair
+# create_key_pair = true
+# ssh_public_key  = "ssh-rsa AAAAB3NzaC1yc2E... your-public-key"
+
+# Option 2: Use existing key pair
+# create_key_pair   = false
+# existing_key_name = "my-existing-key"
+
+# SSH Access (restrict to your IP for security)
+# ssh_allowed_cidrs = ["YOUR_IP/32"]
+
+# DNS Configuration (optional)
+# enable_https      = true
+# domain_name       = "example.com"
+# subdomain         = "qa"
+# route53_zone_id   = "Z1234567890ABC"
+
+# GitHub Actions (optional, for CI/CD)
+# github_actions_role_arn = "arn:aws:iam::123456789012:role/github-actions-role"
+
+# Cost Optimization for QA
+enable_nat_gateway = false  # Set to true if private resources need internet access
+rds_multi_az       = false
+redis_multi_az     = false

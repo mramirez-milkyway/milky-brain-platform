@@ -25,6 +25,9 @@ A comprehensive, secure admin panel system with IAM-like RBAC, audit logging, an
 - Turborepo (monorepo)
 - Docker & Docker Compose
 - PostgreSQL
+- Terraform + Terragrunt (AWS provisioning)
+- AWS (EC2, RDS, ElastiCache, ECR, ALB, Route53)
+- GitHub Actions (CI/CD)
 
 ## Features
 
@@ -63,28 +66,6 @@ milky_way_admin_panel/
 │   │   │   └── app.module.ts
 │   │   ├── prisma/
 │   │   │   └── schema.prisma         # All V1 models
-│   │   ├── package.json
-│   │   └── Dockerfile
-│   ├── web/                          # Next.js Frontend (Current)
-│   │   ├── src/
-│   │   │   ├── app/
-│   │   │   │   ├── login/            # Login page
-│   │   │   │   ├── (dashboard)/      # Protected routes
-│   │   │   │   │   ├── layout.tsx    # Main layout
-│   │   │   │   │   ├── page.tsx      # Dashboard
-│   │   │   │   │   ├── users/
-│   │   │   │   │   ├── roles/
-│   │   │   │   │   ├── policies/
-│   │   │   │   │   ├── settings/
-│   │   │   │   │   ├── notifications/
-│   │   │   │   │   └── audit/
-│   │   │   │   ├── globals.css
-│   │   │   │   ├── layout.tsx
-│   │   │   │   └── providers.tsx
-│   │   │   ├── components/
-│   │   │   └── lib/
-│   │   │       ├── api-client.ts     # Axios instance
-│   │   │       └── auth-store.ts     # Zustand store
 │   │   ├── package.json
 │   │   └── Dockerfile
 │   └── web-admin/                    # Next.js Frontend (TailAdmin V2)
@@ -450,6 +431,61 @@ npm run build
 - ✅ Password-less authentication
 - ✅ Session management
 
+## Infrastructure & Deployment
+
+The application uses **Terraform + Terragrunt** for Infrastructure as Code on AWS.
+
+### Quick Start
+
+```bash
+# Initialize infrastructure for QA
+make infra-init ENV=qa
+make infra-plan ENV=qa
+make infra-apply ENV=qa
+
+# Sync secrets to AWS Secrets Manager
+make sync-secrets ENV=qa
+
+# Build and push Docker images
+make docker-build-all
+aws ecr get-login-password --region eu-south-2 | docker login --username AWS --password-stdin <ECR_REGISTRY>
+make docker-push-all ECR_REGISTRY=<your-ecr-registry>
+
+# Deploy application (via GitHub Actions or SSH)
+# SSH to EC2 instance and run:
+cd /opt/app && ./deploy.sh
+```
+
+### Infrastructure Components
+
+- **VPC**: Public/private subnets across 2 AZs
+- **EC2**: Application servers with Docker
+- **RDS**: PostgreSQL 15 database
+- **ElastiCache**: Redis for caching
+- **ECR**: Container image registry
+- **ALB**: Application Load Balancer
+- **Route53**: DNS management (optional)
+- **ACM**: SSL certificates (optional)
+- **Secrets Manager**: Secure secrets storage
+- **CloudWatch**: Logging and monitoring
+
+### Environments
+
+**QA Environment:**
+- Cost-optimized (single AZ, smaller instances)
+- Auto-deploy on push to `develop` branch
+- Subdomain: `qa.yourdomain.com`
+
+**Production Environment:**
+- High availability (Multi-AZ, larger instances)
+- Manual approval for deployments
+- Domain: `yourdomain.com` or `prod.yourdomain.com`
+
+### Documentation
+
+- [Infrastructure README](infrastructure/README.md) - Complete infrastructure guide
+- [Terraform Modules](infrastructure/modules/) - Reusable infrastructure modules
+
 ## Contributing
 
 Follow the rules in `AGENTS.md`:
@@ -463,6 +499,7 @@ Follow the rules in `AGENTS.md`:
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) - Development rules and guidelines
+- [Infrastructure Guide](infrastructure/README.md) - AWS deployment guide
 - [PRD](docs/prds/central-admin-panel-shell.prd.md) - Product requirements
 
 ## License

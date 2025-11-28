@@ -1,0 +1,140 @@
+name: Deploy to Environment
+
+on:
+  workflow_run:
+    workflows: ['Build and Push Docker Images']
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - qa
+          - prod
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'eu-south-2' }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'qa') }}
+    runs-on: ubuntu-latest
+
+    # Only run if build succeeded or manual trigger
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    # Require approval for production deployments
+    environment:
+      name: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'qa') }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment variables
+        id: set-env
+        run: |
+          if [[ "${{ github.event.inputs.environment }}" == "prod" ]] || [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "ec2_host=${{ secrets.PROD_EC2_HOST }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=qa" >> $GITHUB_OUTPUT
+            echo "ec2_host=${{ secrets.QA_EC2_HOST }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ steps.set-env.outputs.ec2_host }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ steps.set-env.outputs.ec2_host }}
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST << 'ENDSSH'
+            set -e
+
+            # Navigate to app directory
+            cd /opt/app
+
+            # Authenticate with ECR
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+
+            # Fetch latest secrets
+            ./fetch-secrets.sh
+
+            # Pull latest images
+            export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+            export IMAGE_TAG=latest
+            export ENVIRONMENT=${{ steps.set-env.outputs.environment }}
+            export AWS_REGION=${{ env.AWS_REGION }}
+
+            docker-compose -f docker-compose.prod.yml pull
+
+            # Run database migrations
+            docker-compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
+
+            # Restart services with zero-downtime
+            docker-compose -f docker-compose.prod.yml up -d
+
+            # Wait for health checks
+            echo "Waiting for services to be healthy..."
+            sleep 30
+
+            # Verify API health
+            if curl -f http://localhost:4000/health; then
+              echo "API is healthy"
+            else
+              echo "API health check failed"
+              docker-compose -f docker-compose.prod.yml logs api
+              exit 1
+            fi
+
+            # Verify Web health
+            if curl -f http://localhost:3000; then
+              echo "Web is healthy"
+            else
+              echo "Web health check failed"
+              docker-compose -f docker-compose.prod.yml logs web
+              exit 1
+            fi
+
+            # Clean up old images
+            docker image prune -f
+
+            echo "Deployment completed successfully!"
+          ENDSSH
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ steps.set-env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Host:** ${{ steps.set-env.outputs.ec2_host }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

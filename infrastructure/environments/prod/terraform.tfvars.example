@@ -1,0 +1,38 @@
+# Production Environment Configuration Example
+# Copy this file to terraform.tfvars and fill in the values
+
+# AWS Configuration
+aws_region  = "eu-south-2"
+environment = "prod"
+
+# Database Configuration
+db_master_password = "CHANGE_ME_VERY_STRONG_PASSWORD"
+
+# SSH Configuration (choose one approach)
+# Option 1: Create new key pair
+# create_key_pair = true
+# ssh_public_key  = "ssh-rsa AAAAB3NzaC1yc2E... your-public-key"
+
+# Option 2: Use existing key pair
+# create_key_pair   = false
+# existing_key_name = "my-existing-key"
+
+# SSH Access (STRONGLY recommended to restrict to your IPs only)
+ssh_allowed_cidrs = ["YOUR_IP/32"]
+
+# DNS Configuration (recommended for production)
+enable_https      = true
+domain_name       = "example.com"
+subdomain         = ""  # Leave empty for root domain, or use "prod"
+route53_zone_id   = "Z1234567890ABC"
+
+# GitHub Actions (for CI/CD)
+# github_actions_role_arn = "arn:aws:iam::123456789012:role/github-actions-role"
+
+# Production Settings (High Availability)
+enable_nat_gateway = true
+rds_multi_az       = true
+redis_multi_az     = true
+
+# ALB Access Logs (optional)
+# alb_access_logs_bucket = "my-alb-logs-bucket"
