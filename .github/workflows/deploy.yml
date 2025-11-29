@@ -56,16 +56,16 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      - name: Build and push Web image
+      - name: Build and push Web Admin image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: milky-way-web
+          ECR_REPOSITORY: milky-way-web-admin
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
                        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
                        --target production \
-                       -f apps/web/Dockerfile \
+                       -f apps/web-admin/Dockerfile \
                        .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -74,8 +74,8 @@ jobs:
         run: |
           echo "### Docker Images Built :whale:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **API:** ${{ steps.login-ecr.outputs.registry }}/milky-way-admin-panel-api:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Web:** ${{ steps.login-ecr.outputs.registry }}/milky-way-admin-panel-web:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** ${{ steps.login-ecr.outputs.registry }}/milky-way-api:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Admin:** ${{ steps.login-ecr.outputs.registry }}/milky-way-web-admin:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
 
   deploy:
     name: Deploy to ${{ github.event.inputs.environment }}

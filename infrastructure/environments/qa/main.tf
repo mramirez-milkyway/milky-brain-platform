@@ -48,7 +48,7 @@ module "ecr" {
 
   environment             = var.environment
   project_name            = var.project_name
-  repository_names        = ["api", "web", "web-admin"]
+  repository_names        = ["api", "web-admin"]
   github_actions_role_arn = module.github_oidc.github_actions_role_arn
 }
 
