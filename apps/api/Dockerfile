@@ -4,6 +4,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 # Copy root package files and lockfile
 COPY package*.json ./
 COPY turbo.json ./
@@ -18,6 +21,9 @@ RUN npm ci
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -37,6 +43,9 @@ RUN npm run build
 # Stage 3: Production
 FROM node:20-alpine AS production
 WORKDIR /app
+
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
