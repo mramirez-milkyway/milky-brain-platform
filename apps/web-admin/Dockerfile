@@ -27,12 +27,12 @@ COPY turbo.json ./
 COPY apps/web-admin ./apps/web-admin/
 
 # Set environment variable for build
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 # Build Next.js application
 WORKDIR /app/apps/web-admin
-RUN npm run build
+RUN npx next build
 
 # Stage 3: Production
 FROM node:20-alpine AS production
@@ -53,9 +53,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/package.json ./app
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/next.config.ts ./apps/web-admin/
 
 # Set environment variables
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV PORT 3000
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
 
 WORKDIR /app/apps/web-admin
 
