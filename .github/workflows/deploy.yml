@@ -124,24 +124,67 @@ jobs:
           EC2_HOST: ${{ steps.set-host.outputs.ec2_host }}
           ENVIRONMENT: ${{ github.event.inputs.environment }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_REGION: ${{ env.AWS_REGION }}
         run: |
+          # Copy deployment files to EC2
+          scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
+
           ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST << 'ENDSSH'
             set -e
+
+            # Create app directory if it doesn't exist
+            sudo mkdir -p /opt/app
+            sudo chown -R ec2-user:ec2-user /opt/app
 
             # Navigate to app directory
             cd /opt/app
 
+            # Move docker-compose file
+            mv /tmp/docker-compose.prod.yml /opt/app/docker-compose.prod.yml
+
+            # Create fetch-secrets script if it doesn't exist
+            if [ ! -f "/opt/app/fetch-secrets.sh" ]; then
+              cat > /opt/app/fetch-secrets.sh << 'SCRIPT'
+#!/bin/bash
+set -e
+
+SECRET_NAME="${ENVIRONMENT}/app-secrets"
+REGION="${AWS_REGION}"
+
+echo "Fetching secrets from AWS Secrets Manager..."
+
+# Fetch secrets
+SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $REGION --query SecretString --output text 2>/dev/null || echo "{}")
+
+# Parse and create .env file
+if [ "$SECRET_JSON" != "{}" ]; then
+    echo "$SECRET_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' > /opt/app/.env
+    echo "Secrets fetched successfully"
+else
+    echo "Warning: No secrets found in Secrets Manager. Creating placeholder .env"
+    touch /opt/app/.env
+fi
+
+chmod 600 /opt/app/.env
+SCRIPT
+              chmod +x /opt/app/fetch-secrets.sh
+            fi
+
             # Authenticate with ECR
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+            # Set environment variables for fetch-secrets
+            export ENVIRONMENT=${ENVIRONMENT}
+            export AWS_REGION=${AWS_REGION}
 
             # Fetch latest secrets
             ./fetch-secrets.sh
 
             # Pull latest images
-            export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+            export ECR_REGISTRY=${ECR_REGISTRY}
             export IMAGE_TAG=latest
-            export ENVIRONMENT=${{ github.event.inputs.environment }}
-            export AWS_REGION=${{ env.AWS_REGION }}
+            export ENVIRONMENT=${ENVIRONMENT}
+            export AWS_REGION=${AWS_REGION}
 
             docker-compose -f docker-compose.prod.yml pull
 
