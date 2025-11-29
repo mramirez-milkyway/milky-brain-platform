@@ -99,6 +99,17 @@ output "secrets_manager_secret_name" {
   value       = module.secrets.secret_name
 }
 
+# GitHub OIDC Outputs
+output "github_actions_role_arn" {
+  description = "GitHub Actions IAM role ARN (use as AWS_ROLE_ARN secret)"
+  value       = module.github_oidc.github_actions_role_arn
+}
+
+output "github_oidc_provider_arn" {
+  description = "GitHub OIDC provider ARN"
+  value       = module.github_oidc.oidc_provider_arn
+}
+
 # Deployment Information
 output "deployment_info" {
   description = "Important deployment information"

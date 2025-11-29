@@ -205,8 +205,12 @@ variable "route53_zone_id" {
 }
 
 # GitHub Actions
-variable "github_actions_role_arn" {
-  description = "IAM role ARN for GitHub Actions"
+variable "github_org" {
+  description = "GitHub organization or username"
   type        = string
-  default     = ""
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
 }

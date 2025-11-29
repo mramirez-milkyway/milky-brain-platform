@@ -59,7 +59,7 @@ resource "aws_ecr_lifecycle_policy" "repos" {
 
 # ECR repository policy to allow GitHub Actions OIDC
 resource "aws_ecr_repository_policy" "repos" {
-  for_each   = var.github_actions_role_arn != "" ? aws_ecr_repository.repos : {}
+  for_each   = aws_ecr_repository.repos
   repository = each.value.name
 
   policy = jsonencode({

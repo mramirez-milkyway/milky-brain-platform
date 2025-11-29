@@ -1,34 +1,37 @@
-# Production-ready multi-stage Dockerfile for Next.js Web App
+# Production-ready multi-stage Dockerfile for Next.js Web App in Turborepo monorepo
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
+# Copy root package files and lockfile
 COPY package*.json ./
+COPY turbo.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Copy workspace package files
+COPY apps/web/package*.json ./apps/web/
+
+# Install dependencies for the entire monorepo
+RUN npm ci
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package*.json ./
 
-# Install all dependencies including dev dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
+# Copy workspace files
+COPY turbo.json ./
+COPY apps/web ./apps/web/
 
 # Set environment variable for build
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 
 # Build Next.js application
+WORKDIR /app/apps/web
 RUN npm run build
 
 # Stage 3: Production
@@ -39,18 +42,22 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy dependencies from deps stage
+# Copy root node_modules (contains all dependencies)
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nextjs:nodejs /app/package*.json ./
 
-# Copy built application from builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Copy Web-specific files
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next ./apps/web/.next
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/package.json ./apps/web/
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/next.config.js ./apps/web/
 
 # Set environment variables
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV PORT 3000
+
+WORKDIR /app/apps/web
 
 # Switch to non-root user
 USER nextjs

@@ -26,8 +26,9 @@ domain_name       = "example.com"
 subdomain         = ""  # Leave empty for root domain, or use "prod"
 route53_zone_id   = "Z1234567890ABC"
 
-# GitHub Actions (for CI/CD)
-# github_actions_role_arn = "arn:aws:iam::123456789012:role/github-actions-role"
+# GitHub Configuration (required for CI/CD)
+github_org  = "YOUR_GITHUB_ORG_OR_USERNAME"
+github_repo = "YOUR_REPO_NAME"
 
 # Production Settings (High Availability)
 enable_nat_gateway = true

@@ -48,10 +48,10 @@ jobs:
           ECR_REPOSITORY: milky-way-admin-panel-api
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
         run: |
-          cd apps/api
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
                        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
                        --target production \
+                       -f apps/api/Dockerfile \
                        .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -62,10 +62,10 @@ jobs:
           ECR_REPOSITORY: milky-way-admin-panel-web
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
         run: |
-          cd apps/web
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
                        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
                        --target production \
+                       -f apps/web/Dockerfile \
                        .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest

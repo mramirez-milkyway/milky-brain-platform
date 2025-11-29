@@ -22,6 +22,17 @@ module "vpc" {
   enable_nat_gateway = var.enable_nat_gateway
 }
 
+# GitHub OIDC Module
+module "github_oidc" {
+  source = "../../modules/github-oidc"
+
+  project_name = var.project_name
+  environment  = var.environment
+  github_org   = var.github_org
+  github_repo  = var.github_repo
+  secrets_arns = []
+}
+
 # Secrets Module
 module "secrets" {
   source = "../../modules/secrets"
@@ -78,7 +89,7 @@ module "ecr" {
   environment             = var.environment
   project_name            = var.project_name
   repository_names        = ["api", "web", "web-admin"]
-  github_actions_role_arn = var.github_actions_role_arn
+  github_actions_role_arn = module.github_oidc.github_actions_role_arn
 }
 
 # EC2 Module

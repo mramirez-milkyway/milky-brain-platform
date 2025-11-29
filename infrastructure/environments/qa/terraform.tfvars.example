@@ -26,8 +26,9 @@ db_master_password = "CHANGE_ME_STRONG_PASSWORD"
 # subdomain         = "qa"
 # route53_zone_id   = "Z1234567890ABC"
 
-# GitHub Actions (optional, for CI/CD)
-# github_actions_role_arn = "arn:aws:iam::123456789012:role/github-actions-role"
+# GitHub Configuration (required for CI/CD)
+github_org  = "YOUR_GITHUB_ORG_OR_USERNAME"
+github_repo = "YOUR_REPO_NAME"
 
 # Cost Optimization for QA
 enable_nat_gateway = false  # Set to true if private resources need internet access

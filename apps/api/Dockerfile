@@ -1,32 +1,34 @@
-# Production-ready multi-stage Dockerfile for NestJS API
+# Production-ready multi-stage Dockerfile for NestJS API in Turborepo monorepo
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
+# Copy root package files and lockfile
 COPY package*.json ./
-COPY prisma ./prisma/
+COPY turbo.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Copy workspace package files
+COPY apps/api/package*.json ./apps/api/
+COPY apps/api/prisma ./apps/api/prisma/
+
+# Install dependencies for the entire monorepo
+RUN npm ci
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package*.json ./
 
-# Install all dependencies including dev dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
+# Copy workspace files
+COPY turbo.json ./
+COPY apps/api ./apps/api/
 
 # Generate Prisma client
+WORKDIR /app/apps/api
 RUN npx prisma generate
 
 # Build the application
@@ -40,15 +42,17 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001
 
-# Copy dependencies from deps stage
+# Copy root node_modules (contains all dependencies)
 COPY --from=deps --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nestjs:nodejs /app/package*.json ./
 
-# Copy built application from builder stage
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
+# Copy API-specific files
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./apps/api/
 
 # Generate Prisma client in production
+WORKDIR /app/apps/api
 RUN npx prisma generate
 
 # Switch to non-root user
