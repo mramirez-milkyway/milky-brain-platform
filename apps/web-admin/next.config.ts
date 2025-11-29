@@ -11,8 +11,8 @@ const nextConfig: NextConfig = {
   },
   // Configure turbopack for monorepo structure
   turbopack: {
-    // Set root to the monorepo root (two levels up from apps/web-admin)
-    root: '../../',
+    // Set root to the monorepo root (absolute path in Docker)
+    root: '/app',
   },
   webpack(config) {
     config.module.rules.push({
