@@ -9,8 +9,11 @@ const nextConfig: NextConfig = {
     // This will be resolved when libraries are updated for React 19
     ignoreBuildErrors: true,
   },
-  // Add empty turbopack config to silence the webpack/turbopack warning
-  turbopack: {},
+  // Configure turbopack for monorepo structure
+  turbopack: {
+    // Set root to the monorepo root (two levels up from apps/web-admin)
+    root: '../../',
+  },
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
