@@ -35,9 +35,8 @@ ENV NODE_ENV=production
 
 # Build Next.js application
 WORKDIR /app/apps/web-admin
-# Add node_modules bin to PATH so 'next' command is found
-ENV PATH="/app/node_modules/.bin:$PATH"
-RUN npm run build
+# Add node_modules bin to PATH and run build
+RUN PATH="/app/node_modules/.bin:$PATH" npm run build
 
 # Stage 3: Production
 FROM node:20-alpine AS production
