@@ -2,6 +2,7 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   /* config options here */
+  output: 'standalone',
   typescript: {
     // !! WARN !!
     // Temporarily ignore type errors during build due to React 19 compatibility issues
