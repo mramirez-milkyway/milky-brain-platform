@@ -119,6 +119,32 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ steps.set-host.outputs.ec2_host }} >> ~/.ssh/known_hosts
 
+      - name: Create fetch-secrets script
+        run: |
+          cat > /tmp/fetch-secrets.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          SECRET_NAME="${ENVIRONMENT}/app-secrets"
+          REGION="${AWS_REGION}"
+
+          echo "Fetching secrets from AWS Secrets Manager..."
+
+          # Fetch secrets
+          SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $REGION --query SecretString --output text 2>/dev/null || echo "{}")
+
+          # Parse and create .env file
+          if [ "$SECRET_JSON" != "{}" ]; then
+              echo "$SECRET_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' > /opt/app/.env
+              echo "Secrets fetched successfully"
+          else
+              echo "Warning: No secrets found in Secrets Manager. Creating placeholder .env"
+              touch /opt/app/.env
+          fi
+
+          chmod 600 /opt/app/.env
+          EOF
+
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ steps.set-host.outputs.ec2_host }}
@@ -128,6 +154,7 @@ jobs:
         run: |
           # Copy deployment files to EC2
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
+          scp -i ~/.ssh/deploy_key /tmp/fetch-secrets.sh ec2-user@$EC2_HOST:/tmp/
 
           ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST << 'ENDSSH'
             set -e
@@ -142,31 +169,9 @@ jobs:
             # Move docker-compose file
             mv /tmp/docker-compose.prod.yml /opt/app/docker-compose.prod.yml
 
-            # Create fetch-secrets script if it doesn't exist
+            # Move fetch-secrets script if it doesn't exist
             if [ ! -f "/opt/app/fetch-secrets.sh" ]; then
-              cat > /opt/app/fetch-secrets.sh << 'SCRIPT'
-#!/bin/bash
-set -e
-
-SECRET_NAME="${ENVIRONMENT}/app-secrets"
-REGION="${AWS_REGION}"
-
-echo "Fetching secrets from AWS Secrets Manager..."
-
-# Fetch secrets
-SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $REGION --query SecretString --output text 2>/dev/null || echo "{}")
-
-# Parse and create .env file
-if [ "$SECRET_JSON" != "{}" ]; then
-    echo "$SECRET_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' > /opt/app/.env
-    echo "Secrets fetched successfully"
-else
-    echo "Warning: No secrets found in Secrets Manager. Creating placeholder .env"
-    touch /opt/app/.env
-fi
-
-chmod 600 /opt/app/.env
-SCRIPT
+              mv /tmp/fetch-secrets.sh /opt/app/fetch-secrets.sh
               chmod +x /opt/app/fetch-secrets.sh
             fi
 
@@ -183,8 +188,6 @@ SCRIPT
             # Pull latest images
             export ECR_REGISTRY=${ECR_REGISTRY}
             export IMAGE_TAG=latest
-            export ENVIRONMENT=${ENVIRONMENT}
-            export AWS_REGION=${AWS_REGION}
 
             docker-compose -f docker-compose.prod.yml pull
 
