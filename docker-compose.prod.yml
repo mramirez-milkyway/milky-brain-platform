@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   api:
-    image: ${ECR_REGISTRY}/milky-way-admin-panel-api:${IMAGE_TAG:-latest}
+    image: ${ECR_REGISTRY}/milky-way-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -42,7 +42,7 @@ services:
         awslogs-create-group: 'true'
 
   web:
-    image: ${ECR_REGISTRY}/milky-way-admin-panel-web:${IMAGE_TAG:-latest}
+    image: ${ECR_REGISTRY}/milky-way-web-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       NODE_ENV: production
