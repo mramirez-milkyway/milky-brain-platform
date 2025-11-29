@@ -204,7 +204,7 @@ jobs:
             sleep 30
 
             # Verify API health
-            if curl -f http://localhost:4000/health; then
+            if curl -f http://localhost:4000/api/health; then
               echo "API is healthy"
             else
               echo "API health check failed"
