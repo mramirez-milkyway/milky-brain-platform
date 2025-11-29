@@ -58,6 +58,15 @@ resource "aws_security_group" "ec2" {
     security_groups = var.alb_security_group_ids
   }
 
+  # API port from internet (for testing)
+  ingress {
+    description = "API from internet"
+    from_port   = 4000
+    to_port     = 4000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # Web port from ALB
   ingress {
     description     = "Web from ALB"
@@ -65,6 +74,15 @@ resource "aws_security_group" "ec2" {
     to_port         = 3000
     protocol        = "tcp"
     security_groups = var.alb_security_group_ids
+  }
+
+  # Web port from internet (for testing)
+  ingress {
+    description = "Web from internet"
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Allow all outbound

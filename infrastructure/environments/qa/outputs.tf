@@ -121,7 +121,7 @@ output "deployment_info" {
     db_endpoint    = module.rds.db_instance_address
     redis_endpoint = module.redis.redis_endpoint
     ecr_api_repo   = module.ecr.repository_urls["api"]
-    ecr_web_repo   = module.ecr.repository_urls["web"]
+    ecr_web_repo   = module.ecr.repository_urls["web-admin"]
     secrets_name   = module.secrets.secret_name
   }
 }

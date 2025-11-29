@@ -71,3 +71,9 @@ These are the rules any AI agent MUST follow without exception.
 * If something is unclear, ask for clarification — **never assume.**
 * The app is a turborepo monorepo
 * Usage of type `any` is STRICLY PROHIBITED, `unknown` must be used instead, and parsed to a type when needed.
+
+---
+
+## Infrastructure
+* Infra is done via IaC (Terraform)
+* Nothing can be created manually with AWS cli, everything must live under Terraform inside folder `/infrastructure`

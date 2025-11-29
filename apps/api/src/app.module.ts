@@ -20,8 +20,10 @@ import { RedisService } from './common/services/redis.service'
 import { ActivityTrackingMiddleware } from './common/middleware/activity-tracking.middleware'
 import { CsrfGuard } from './common/guards/csrf.guard'
 import { SessionService } from './auth/services/session.service'
+import { HealthController } from './health/health.controller'
 
 @Module({
+  controllers: [HealthController],
   imports: [
     // Configuration
     ConfigModule.forRoot({

@@ -51,15 +51,23 @@
 * Unit tests mandatory using **react-testing-library**.
 * Tests live under `/test` folder inside the client app mirroring the folder structure.
 
+---
+
+## Infrastructure
+* Infra is done via IaC (Terraform)
+* Nothing can be created manually with AWS cli, everything must live under Terraform inside folder `/infrastructure`
+
 
 ### Architecture Patterns
 [Document your architectural decisions and patterns]
 
 ### Testing Strategy
-[Explain your testing approach and requirements]
+* Use Jest for unit testing
+* Do not E2E or integration tests in this initial stage.
 
 ### Git Workflow
-[Describe your branching strategy and commit conventions]
+* Use semmantic branches and semmantic commits.
+* Allowed branch and commit types are: feat/chore/fix/hotfix/docs/testing
 
 ## Domain Context
 [Add domain-specific knowledge that AI assistants need to understand]
@@ -68,4 +76,5 @@
 [List any technical, business, or regulatory constraints]
 
 ## External Dependencies
-[Document key external services, APIs, or systems]
+* Resend for emails
+*
