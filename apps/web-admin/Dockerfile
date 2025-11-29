@@ -11,8 +11,10 @@ COPY turbo.json ./
 # Copy workspace package files
 COPY apps/web-admin/package*.json ./apps/web-admin/
 
-# Install dependencies for the entire monorepo
-RUN npm ci
+# Install dependencies for the entire monorepo with workspace support
+RUN npm ci --workspaces=false && \
+    cd apps/web-admin && \
+    npm ci
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -23,6 +25,7 @@ RUN corepack enable
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web-admin/node_modules ./apps/web-admin/node_modules
 COPY --from=deps /app/package*.json ./
 
 # Copy workspace files
@@ -35,8 +38,8 @@ ENV NODE_ENV=production
 
 # Build Next.js application
 WORKDIR /app/apps/web-admin
-# Add node_modules bin to PATH and run build
-RUN PATH="/app/node_modules/.bin:$PATH" npm run build
+# Run build (node_modules is already in place)
+RUN npm run build
 
 # Stage 3: Production
 FROM node:20-alpine AS production
