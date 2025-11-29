@@ -156,7 +156,7 @@ jobs:
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
           scp -i ~/.ssh/deploy_key /tmp/fetch-secrets.sh ec2-user@$EC2_HOST:/tmp/
 
-          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST bash -s << ENDSSH
             set -e
 
             # Create app directory if it doesn't exist
@@ -176,18 +176,20 @@ jobs:
             fi
 
             # Authenticate with ECR
-            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
             # Set environment variables for fetch-secrets
-            export ENVIRONMENT=${ENVIRONMENT}
-            export AWS_REGION=${AWS_REGION}
+            export ENVIRONMENT=$ENVIRONMENT
+            export AWS_REGION=$AWS_REGION
 
             # Fetch latest secrets
             ./fetch-secrets.sh
 
             # Pull latest images
-            export ECR_REGISTRY=${ECR_REGISTRY}
+            export ECR_REGISTRY=$ECR_REGISTRY
             export IMAGE_TAG=latest
+            export ENVIRONMENT=$ENVIRONMENT
+            export AWS_REGION=$AWS_REGION
 
             docker-compose -f docker-compose.prod.yml pull
 
