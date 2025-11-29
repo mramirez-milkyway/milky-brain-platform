@@ -34,8 +34,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Build Next.js application
-WORKDIR /app/apps/web-admin
-RUN npx next build
+WORKDIR /app
+RUN npm run build --workspace=apps/web-admin
 
 # Stage 3: Production
 FROM node:20-alpine AS production
