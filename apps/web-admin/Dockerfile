@@ -34,8 +34,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Build Next.js application
-WORKDIR /app
-RUN npm run build --workspace=apps/web-admin
+WORKDIR /app/apps/web-admin
+# Add node_modules bin to PATH so 'next' command is found
+ENV PATH="/app/node_modules/.bin:$PATH"
+RUN npm run build
 
 # Stage 3: Production
 FROM node:20-alpine AS production
