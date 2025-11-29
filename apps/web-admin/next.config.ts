@@ -9,10 +9,8 @@ const nextConfig: NextConfig = {
     // This will be resolved when libraries are updated for React 19
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Ignore ESLint errors during build for now
-    ignoreDuringBuilds: true,
-  },
+  // Add empty turbopack config to silence the webpack/turbopack warning
+  turbopack: {},
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
