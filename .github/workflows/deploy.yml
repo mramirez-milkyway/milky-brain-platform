@@ -30,7 +30,8 @@ jobs:
       - name: Set image tag
         id: set-tag
         run: |
-          echo "image_tag=${{ github.event.inputs.environment }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image_tag=${{ github.event.inputs.environment }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -104,6 +105,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set image tag
+        id: set-tag
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image_tag=${{ github.event.inputs.environment }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
       - name: Set EC2 host
         id: set-host
         run: |
@@ -162,6 +169,7 @@ jobs:
           ENVIRONMENT: ${{ github.event.inputs.environment }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           AWS_REGION: ${{ env.AWS_REGION }}
+          IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
         run: |
           # Copy deployment files to EC2
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
@@ -196,20 +204,22 @@ jobs:
             # Fetch latest secrets
             ./fetch-secrets.sh
 
-            # Pull latest images
+            # Pull specific tagged images
             export ECR_REGISTRY=$ECR_REGISTRY
-            export IMAGE_TAG=latest
+            export IMAGE_TAG=$IMAGE_TAG
             export ENVIRONMENT=$ENVIRONMENT
             export AWS_REGION=$AWS_REGION
 
+            echo "Pulling images with tag: $IMAGE_TAG"
             docker-compose -f docker-compose.prod.yml pull
 
             # Run database migrations
             docker-compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
 
             # Restart services with zero-downtime (force recreate to use new images)
-            docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps web
+            echo "Recreating containers with new images..."
             docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps api
+            docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps web
 
             # Wait for health checks
             echo "Waiting for services to be healthy..."
@@ -249,6 +259,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Target Host:** ${{ steps.set-host.outputs.ec2_host }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag:** ${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
