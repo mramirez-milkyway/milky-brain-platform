@@ -175,7 +175,12 @@ jobs:
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
           scp -i ~/.ssh/deploy_key /tmp/fetch-secrets.sh ec2-user@$EC2_HOST:/tmp/
 
-          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST bash -s << ENDSSH
+          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST \
+            "export ECR_REGISTRY='$ECR_REGISTRY' && \
+             export IMAGE_TAG='$IMAGE_TAG' && \
+             export ENVIRONMENT='$ENVIRONMENT' && \
+             export AWS_REGION='$AWS_REGION' && \
+             bash -s" << 'ENDSSH'
             set -e
 
             # Create app directory if it doesn't exist
@@ -197,19 +202,10 @@ jobs:
             # Authenticate with ECR
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-            # Set environment variables for fetch-secrets
-            export ENVIRONMENT=$ENVIRONMENT
-            export AWS_REGION=$AWS_REGION
-
             # Fetch latest secrets
             ./fetch-secrets.sh
 
             # Pull specific tagged images
-            export ECR_REGISTRY=$ECR_REGISTRY
-            export IMAGE_TAG=$IMAGE_TAG
-            export ENVIRONMENT=$ENVIRONMENT
-            export AWS_REGION=$AWS_REGION
-
             echo "Pulling images with tag: $IMAGE_TAG"
             docker-compose -f docker-compose.prod.yml pull
 
