@@ -56,14 +56,25 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      - name: Set API URL for environment
+        id: set-api-url
+        run: |
+          if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
+            echo "api_url=${{ secrets.PROD_API_URL }}" >> $GITHUB_OUTPUT
+          else
+            echo "api_url=${{ secrets.QA_API_URL }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push Web Admin image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: milky-way-web-admin
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
+          NEXT_PUBLIC_API_URL: ${{ steps.set-api-url.outputs.api_url }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
                        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+                       --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
                        --target production \
                        -f apps/web-admin/Dockerfile \
                        .
