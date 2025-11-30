@@ -26,7 +26,7 @@ async function main() {
   const policies = [
     {
       name: 'AdminFullAccess',
-      description: 'Full access to all resources including audit logs',
+      description: 'Full access to all resources including audit logs and integrations',
       statements: [{ Effect: 'Allow', Actions: ['*'], Resources: ['*'] }],
     },
     {

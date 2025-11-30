@@ -67,6 +67,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/audit': 'audit:Read',
   '/navigation': 'navigation:Read',
   '/influencers': 'influencer:Read',
+  '/integrations': 'integration:Read',
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

@@ -12,6 +12,7 @@ import {
   PageIcon,
   PieChartIcon,
   TableIcon,
+  PlugInIcon,
 } from '../icons/index'
 
 type NavItem = {
@@ -58,6 +59,12 @@ const navItems: NavItem[] = [
     name: 'Influencers',
     path: '/influencers',
     permission: 'influencer:Read', // Only users with influencer:Read permission
+  },
+  {
+    icon: <PlugInIcon />,
+    name: 'Integrations',
+    path: '/integrations',
+    permission: 'integration:Read', // Only users with integration:Read permission
   },
 ]
 
