@@ -2,6 +2,8 @@ services:
   api:
     image: ${ECR_REGISTRY}/milky-way-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -42,6 +44,8 @@ services:
   web:
     image: ${ECR_REGISTRY}/milky-way-web-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
