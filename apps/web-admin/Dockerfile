@@ -43,17 +43,20 @@ RUN npm run build
 
 # Stage 3: Production
 FROM node:20-alpine AS production
-WORKDIR /app/apps/web-admin
+WORKDIR /app
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy standalone output from builder - standalone includes node_modules and the server
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/.next/standalone/apps/web-admin ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/.next/standalone/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/public ./public
+# Copy the standalone output (includes the monorepo structure)
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/.next/standalone ./
+
+# Copy static files (not included in standalone)
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/.next/static ./apps/web-admin/.next/static
+
+# Copy public files
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-admin/public ./apps/web-admin/public
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -72,4 +75,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start the application using standalone server
-CMD ["node", "server.js"]
+CMD ["node", "apps/web-admin/server.js"]
