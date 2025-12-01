@@ -160,6 +160,19 @@ jobs:
               touch /opt/app/.env
           fi
 
+          # Append infrastructure and deployment variables (override if they exist)
+          sed -i '/^ECR_REGISTRY=/d' /opt/app/.env
+          sed -i '/^IMAGE_TAG=/d' /opt/app/.env
+          sed -i '/^ENVIRONMENT=/d' /opt/app/.env
+          sed -i '/^AWS_REGION=/d' /opt/app/.env
+          sed -i '/^NODE_ENV=/d' /opt/app/.env
+
+          echo "ECR_REGISTRY=${ECR_REGISTRY}" >> /opt/app/.env
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> /opt/app/.env
+          echo "ENVIRONMENT=${ENVIRONMENT}" >> /opt/app/.env
+          echo "AWS_REGION=${AWS_REGION}" >> /opt/app/.env
+          echo "NODE_ENV=production" >> /opt/app/.env
+
           chmod 600 /opt/app/.env
           EOF
 
@@ -175,13 +188,24 @@ jobs:
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
           scp -i ~/.ssh/deploy_key /tmp/fetch-secrets.sh ec2-user@$EC2_HOST:/tmp/
 
-          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST \
-            "export ECR_REGISTRY='$ECR_REGISTRY' && \
-             export IMAGE_TAG='$IMAGE_TAG' && \
-             export ENVIRONMENT='$ENVIRONMENT' && \
-             export AWS_REGION='$AWS_REGION' && \
-             bash -s" << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST bash -s -- \
+            "$ECR_REGISTRY" \
+            "$IMAGE_TAG" \
+            "$ENVIRONMENT" \
+            "$AWS_REGION" << 'ENDSSH'
             set -e
+
+            # Get parameters passed from GitHub Actions
+            ECR_REGISTRY="$1"
+            IMAGE_TAG="$2"
+            ENVIRONMENT="$3"
+            AWS_REGION="$4"
+
+            # Export for use in subshells
+            export ECR_REGISTRY
+            export IMAGE_TAG
+            export ENVIRONMENT
+            export AWS_REGION
 
             # Create app directory if it doesn't exist
             sudo mkdir -p /opt/app
@@ -193,16 +217,14 @@ jobs:
             # Move docker-compose file
             mv /tmp/docker-compose.prod.yml /opt/app/docker-compose.prod.yml
 
-            # Move fetch-secrets script if it doesn't exist
-            if [ ! -f "/opt/app/fetch-secrets.sh" ]; then
-              mv /tmp/fetch-secrets.sh /opt/app/fetch-secrets.sh
-              chmod +x /opt/app/fetch-secrets.sh
-            fi
+            # Move fetch-secrets script
+            mv /tmp/fetch-secrets.sh /opt/app/fetch-secrets.sh
+            chmod +x /opt/app/fetch-secrets.sh
 
             # Authenticate with ECR
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-            # Fetch latest secrets
+            # Fetch latest secrets and append deployment variables
             ./fetch-secrets.sh
 
             # Pull specific tagged images directly (not via docker-compose)

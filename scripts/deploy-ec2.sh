@@ -42,19 +42,28 @@ echo -e "${YELLOW}ECR Registry: $ECR_REGISTRY${NC}"
 echo -e "${GREEN}Authenticating with ECR...${NC}"
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
+# Export environment variables for docker-compose and fetch-secrets script
+export ECR_REGISTRY="$ECR_REGISTRY"
+export IMAGE_TAG="${IMAGE_TAG:-latest}"
+export ENVIRONMENT="$ENVIRONMENT"
+export AWS_REGION="$AWS_REGION"
+
 # Fetch latest secrets
 echo -e "${GREEN}Fetching latest secrets...${NC}"
 if [ -f "./fetch-secrets.sh" ]; then
     ./fetch-secrets.sh
 else
-    echo -e "${YELLOW}Warning: fetch-secrets.sh not found, skipping secret fetch${NC}"
+    echo -e "${YELLOW}Warning: fetch-secrets.sh not found, creating .env manually${NC}"
+    # Create basic .env with deployment variables
+    cat > .env << ENVFILE
+ECR_REGISTRY=$ECR_REGISTRY
+IMAGE_TAG=$IMAGE_TAG
+ENVIRONMENT=$ENVIRONMENT
+AWS_REGION=$AWS_REGION
+NODE_ENV=production
+ENVFILE
+    chmod 600 .env
 fi
-
-# Export environment variables for docker-compose
-export ECR_REGISTRY="$ECR_REGISTRY"
-export IMAGE_TAG="${IMAGE_TAG:-latest}"
-export ENVIRONMENT="$ENVIRONMENT"
-export AWS_REGION="$AWS_REGION"
 
 echo -e "${GREEN}Pulling latest images (tag: $IMAGE_TAG)...${NC}"
 
