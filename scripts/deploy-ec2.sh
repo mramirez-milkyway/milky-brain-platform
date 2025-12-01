@@ -21,22 +21,34 @@ fi
 
 cd "$APP_DIR"
 
-# Get environment and region from .env or use defaults
-export $(grep -v '^#' .env | xargs)
-ENVIRONMENT=${ENVIRONMENT:-prod}
-AWS_REGION=${AWS_REGION:-eu-south-2}
+# Use environment variables passed from GitHub Actions, or fallback to .env, or use defaults
+if [ -z "$ENVIRONMENT" ]; then
+    export $(grep -v '^#' .env 2>/dev/null | xargs) || true
+    ENVIRONMENT=${ENVIRONMENT:-prod}
+fi
 
-# Get ECR registry
-ECR_REGISTRY=$(aws ecr describe-repositories --region "$AWS_REGION" --query 'repositories[0].repositoryUri' --output text | cut -d'/' -f1)
+if [ -z "$AWS_REGION" ]; then
+    AWS_REGION=${AWS_REGION:-eu-south-2}
+fi
 
 if [ -z "$ECR_REGISTRY" ]; then
-    echo -e "${RED}Error: Could not determine ECR registry${NC}"
-    exit 1
+    # Get ECR registry from AWS if not provided
+    ECR_REGISTRY=$(aws ecr describe-repositories --region "$AWS_REGION" --query 'repositories[0].repositoryUri' --output text 2>/dev/null | cut -d'/' -f1)
+
+    if [ -z "$ECR_REGISTRY" ]; then
+        echo -e "${RED}Error: Could not determine ECR registry${NC}"
+        exit 1
+    fi
+fi
+
+if [ -z "$IMAGE_TAG" ]; then
+    IMAGE_TAG="latest"
 fi
 
 echo -e "${YELLOW}Environment: $ENVIRONMENT${NC}"
 echo -e "${YELLOW}AWS Region: $AWS_REGION${NC}"
 echo -e "${YELLOW}ECR Registry: $ECR_REGISTRY${NC}"
+echo -e "${YELLOW}Image Tag: $IMAGE_TAG${NC}"
 
 # Authenticate with ECR
 echo -e "${GREEN}Authenticating with ECR...${NC}"

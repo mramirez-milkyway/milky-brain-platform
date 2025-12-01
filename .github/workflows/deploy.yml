@@ -137,45 +137,6 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ steps.set-host.outputs.ec2_host }} >> ~/.ssh/known_hosts
 
-      - name: Create fetch-secrets script
-        run: |
-          cat > /tmp/fetch-secrets.sh << 'EOF'
-          #!/bin/bash
-          set -e
-
-          SECRET_NAME="${ENVIRONMENT}/app-secrets"
-          REGION="${AWS_REGION}"
-
-          echo "Fetching secrets from AWS Secrets Manager..."
-
-          # Fetch secrets
-          SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $REGION --query SecretString --output text 2>/dev/null || echo "{}")
-
-          # Parse and create .env file
-          if [ "$SECRET_JSON" != "{}" ]; then
-              echo "$SECRET_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' > /opt/app/.env
-              echo "Secrets fetched successfully"
-          else
-              echo "Warning: No secrets found in Secrets Manager. Creating placeholder .env"
-              touch /opt/app/.env
-          fi
-
-          # Append infrastructure and deployment variables (override if they exist)
-          sed -i '/^ECR_REGISTRY=/d' /opt/app/.env
-          sed -i '/^IMAGE_TAG=/d' /opt/app/.env
-          sed -i '/^ENVIRONMENT=/d' /opt/app/.env
-          sed -i '/^AWS_REGION=/d' /opt/app/.env
-          sed -i '/^NODE_ENV=/d' /opt/app/.env
-
-          echo "ECR_REGISTRY=${ECR_REGISTRY}" >> /opt/app/.env
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> /opt/app/.env
-          echo "ENVIRONMENT=${ENVIRONMENT}" >> /opt/app/.env
-          echo "AWS_REGION=${AWS_REGION}" >> /opt/app/.env
-          echo "NODE_ENV=production" >> /opt/app/.env
-
-          chmod 600 /opt/app/.env
-          EOF
-
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ steps.set-host.outputs.ec2_host }}
@@ -186,7 +147,8 @@ jobs:
         run: |
           # Copy deployment files to EC2
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
-          scp -i ~/.ssh/deploy_key /tmp/fetch-secrets.sh ec2-user@$EC2_HOST:/tmp/
+          scp -i ~/.ssh/deploy_key fetch-secrets.sh ec2-user@$EC2_HOST:/tmp/
+          scp -i ~/.ssh/deploy_key scripts/deploy-ec2.sh ec2-user@$EC2_HOST:/tmp/
 
           ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST bash -s -- \
             "$ECR_REGISTRY" \
@@ -201,74 +163,35 @@ jobs:
             ENVIRONMENT="$3"
             AWS_REGION="$4"
 
-            # Export for use in subshells
+            # Export for use in subshells and scripts
             export ECR_REGISTRY
             export IMAGE_TAG
             export ENVIRONMENT
             export AWS_REGION
 
+            echo "=== Deployment Parameters ==="
+            echo "ECR_REGISTRY: $ECR_REGISTRY"
+            echo "IMAGE_TAG: $IMAGE_TAG"
+            echo "ENVIRONMENT: $ENVIRONMENT"
+            echo "AWS_REGION: $AWS_REGION"
+            echo "============================"
+
             # Create app directory if it doesn't exist
             sudo mkdir -p /opt/app
             sudo chown -R ec2-user:ec2-user /opt/app
 
+            # Move deployment files to app directory
+            mv /tmp/docker-compose.prod.yml /opt/app/docker-compose.prod.yml
+            mv /tmp/fetch-secrets.sh /opt/app/fetch-secrets.sh
+            mv /tmp/deploy-ec2.sh /opt/app/deploy-ec2.sh
+            chmod +x /opt/app/fetch-secrets.sh
+            chmod +x /opt/app/deploy-ec2.sh
+
             # Navigate to app directory
             cd /opt/app
 
-            # Move docker-compose file
-            mv /tmp/docker-compose.prod.yml /opt/app/docker-compose.prod.yml
-
-            # Move fetch-secrets script
-            mv /tmp/fetch-secrets.sh /opt/app/fetch-secrets.sh
-            chmod +x /opt/app/fetch-secrets.sh
-
-            # Authenticate with ECR
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-
-            # Fetch latest secrets and append deployment variables
-            ./fetch-secrets.sh
-
-            # Pull specific tagged images directly (not via docker-compose)
-            echo "Pulling images with tag: $IMAGE_TAG"
-            docker pull $ECR_REGISTRY/milky-way-api:$IMAGE_TAG
-            docker pull $ECR_REGISTRY/milky-way-web-admin:$IMAGE_TAG
-
-            # Stop existing containers gracefully
-            echo "Stopping existing containers..."
-            docker-compose -f docker-compose.prod.yml down --timeout 30 || true
-
-            # Run database migrations
-            docker-compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
-
-            # Start services with new images
-            echo "Starting containers with new images..."
-            docker-compose -f docker-compose.prod.yml up -d
-
-            # Wait for health checks
-            echo "Waiting for services to be healthy..."
-            sleep 30
-
-            # Verify API health
-            if curl -f http://localhost:4000/api/health; then
-              echo "API is healthy"
-            else
-              echo "API health check failed"
-              docker-compose -f docker-compose.prod.yml logs api
-              exit 1
-            fi
-
-            # Verify Web health
-            if curl -f http://localhost:3000; then
-              echo "Web is healthy"
-            else
-              echo "Web health check failed"
-              docker-compose -f docker-compose.prod.yml logs web
-              exit 1
-            fi
-
-            # Clean up old images
-            docker image prune -f
-
-            echo "Deployment completed successfully!"
+            # Run the deployment script
+            ./deploy-ec2.sh
           ENDSSH
 
       - name: Cleanup SSH key
