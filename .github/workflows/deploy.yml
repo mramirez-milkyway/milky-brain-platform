@@ -205,17 +205,21 @@ jobs:
             # Fetch latest secrets
             ./fetch-secrets.sh
 
-            # Pull specific tagged images
+            # Pull specific tagged images directly (not via docker-compose)
             echo "Pulling images with tag: $IMAGE_TAG"
-            docker-compose -f docker-compose.prod.yml pull
+            docker pull $ECR_REGISTRY/milky-way-api:$IMAGE_TAG
+            docker pull $ECR_REGISTRY/milky-way-web-admin:$IMAGE_TAG
+
+            # Stop existing containers gracefully
+            echo "Stopping existing containers..."
+            docker-compose -f docker-compose.prod.yml down --timeout 30 || true
 
             # Run database migrations
             docker-compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
 
-            # Restart services with zero-downtime (force recreate to use new images)
-            echo "Recreating containers with new images..."
-            docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps api
-            docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps web
+            # Start services with new images
+            echo "Starting containers with new images..."
+            docker-compose -f docker-compose.prod.yml up -d
 
             # Wait for health checks
             echo "Waiting for services to be healthy..."
