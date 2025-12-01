@@ -59,7 +59,7 @@ echo "ECR_REGISTRY=${ECR_REGISTRY}" >> "$ENV_FILE"
 echo "IMAGE_TAG=${IMAGE_TAG:-latest}" >> "$ENV_FILE"
 echo "ENVIRONMENT=${ENVIRONMENT}" >> "$ENV_FILE"
 echo "AWS_REGION=${AWS_REGION}" >> "$ENV_FILE"
-echo "NODE_ENV=production" >> "$ENV_FILE"
+echo "NODE_ENV=development" >> "$ENV_FILE"
 
 # Set secure permissions
 chmod 600 "$ENV_FILE"
