@@ -90,6 +90,62 @@ AWS_PROFILE=milkyway terraform apply -target=module.acm  # If using HTTPS
 AWS_PROFILE=milkyway terraform apply
 ```
 
+## Storing Terraform Variables Securely
+
+**Recommended:** Store `terraform.tfvars` in AWS Secrets Manager (don't commit to git).
+
+### Store tfvars in Secrets Manager
+
+```bash
+# Store QA tfvars
+AWS_PROFILE=milkyway aws secretsmanager create-secret \
+  --name terraform/qa/tfvars \
+  --description "Terraform variables for QA environment" \
+  --secret-string file://infrastructure/environments/qa/terraform.tfvars \
+  --region eu-south-2
+
+# Store Production tfvars
+AWS_PROFILE=milkyway aws secretsmanager create-secret \
+  --name terraform/prod/tfvars \
+  --description "Terraform variables for Production environment" \
+  --secret-string file://infrastructure/environments/prod/terraform.tfvars \
+  --region eu-south-2
+```
+
+### Retrieve tfvars when needed
+
+```bash
+# Fetch QA tfvars
+AWS_PROFILE=milkyway aws secretsmanager get-secret-value \
+  --secret-id terraform/qa/tfvars \
+  --region eu-south-2 \
+  --query SecretString \
+  --output text > infrastructure/environments/qa/terraform.tfvars
+
+# Fetch Production tfvars
+AWS_PROFILE=milkyway aws secretsmanager get-secret-value \
+  --secret-id terraform/prod/tfvars \
+  --region eu-south-2 \
+  --query SecretString \
+  --output text > infrastructure/environments/prod/terraform.tfvars
+```
+
+### Update stored tfvars
+
+```bash
+# Update QA tfvars after editing locally
+AWS_PROFILE=milkyway aws secretsmanager update-secret \
+  --secret-id terraform/qa/tfvars \
+  --secret-string file://infrastructure/environments/qa/terraform.tfvars \
+  --region eu-south-2
+
+# Update Production tfvars after editing locally
+AWS_PROFILE=milkyway aws secretsmanager update-secret \
+  --secret-id terraform/prod/tfvars \
+  --secret-string file://infrastructure/environments/prod/terraform.tfvars \
+  --region eu-south-2
+```
+
 ## Secrets Management
 
 Update application secrets in AWS Secrets Manager:
