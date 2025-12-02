@@ -68,6 +68,14 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     refetchOnWindowFocus: false,
   })
 
+  // Handle authentication error - redirect to login immediately
+  useEffect(() => {
+    if (error) {
+      console.error('Auth data fetch failed:', error)
+      router.replace('/login')
+    }
+  }, [error, router])
+
   // Single useEffect to set both user and permissions atomically
   // This ensures Zustand store is updated in one synchronous batch
   useEffect(() => {
@@ -76,11 +84,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       // Update store in a single batch
       setUser(authData.user)
       setPermissions(authData.permissions)
-    } else if (error) {
-      console.error('Auth data fetch failed:', error)
-      router.push('/login')
     }
-  }, [authData, error, setUser, setPermissions, router])
+  }, [authData, setUser, setPermissions])
 
   // Start proactive token refresh when user is authenticated
   useEffect(() => {
@@ -92,6 +97,15 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       stopProactiveRefresh()
     }
   }, [authData?.user, startProactiveRefresh, stopProactiveRefresh])
+
+  // If authentication failed, show redirecting message while redirect happens
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-700 dark:text-gray-300">Redirecting to login...</div>
+      </div>
+    )
+  }
 
   // Don't render until BOTH:
   // 1. Query has completed successfully with data
