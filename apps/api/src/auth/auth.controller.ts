@@ -229,7 +229,10 @@ export class AuthController {
     })
 
     // Manually redirect to Google OAuth with state parameter
-    const apiUrl = process.env.API_URL || 'http://localhost:4000/api'
+    // Extract base URL from GOOGLE_CALLBACK_URL (e.g., https://qa.milkywayadmin.com/api/auth/google/callback -> https://qa.milkywayadmin.com/api)
+    const callbackUrl =
+      process.env.GOOGLE_CALLBACK_URL || 'http://localhost:4000/api/auth/google/callback'
+    const apiUrl = callbackUrl.replace(/\/auth\/google\/callback$/, '')
     return res.redirect(`${apiUrl}/auth/google?state=${encodeURIComponent(token)}`)
   }
 
