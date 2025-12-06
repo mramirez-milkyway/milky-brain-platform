@@ -26,6 +26,11 @@ domain_name       = "example.com"
 subdomain         = ""  # Leave empty for root domain, or use "prod"
 route53_zone_id   = "Z1234567890ABC"
 
+# Resend Email Configuration (optional)
+# enable_resend_dns    = true
+# resend_dkim_value    = "p=MIGfMA0GCSqGSIb3DQEB..."  # Get from Resend dashboard
+# resend_dmarc_policy  = "v=DMARC1; p=none;"
+
 # GitHub Configuration (required for CI/CD)
 github_org  = "YOUR_GITHUB_ORG_OR_USERNAME"
 github_repo = "YOUR_REPO_NAME"

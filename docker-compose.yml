@@ -32,6 +32,30 @@ services:
       retries: 5
     command: redis-server --appendonly yes
 
+  localstack:
+    image: localstack/localstack:latest
+    container_name: admin_panel_localstack
+    ports:
+      - '4566:4566' # LocalStack edge port
+      - '4510-4559:4510-4559' # External service port range
+    environment:
+      - SERVICES=s3,sqs,lambda,secretsmanager,cloudwatch,logs
+      - DEBUG=1
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LAMBDA_DOCKER_NETWORK=milky_way_admin_panel_default
+      - DATA_DIR=/var/lib/localstack
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - 'localstack_data:/var/lib/localstack'
+      - './lambdas/job-processor/lambda.zip:/tmp/lambda.zip'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4566/_localstack/health']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
   api:
     build:
       context: ./apps/api
@@ -46,12 +70,21 @@ services:
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:4000/api/auth/google/callback}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       NODE_ENV: development
+      # AWS LocalStack Configuration
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: eu-south-2
+      S3_JOBS_BUCKET_NAME: local-jobs-bucket
+      SQS_JOBS_QUEUE_URL: http://localstack:4566/000000000000/local-jobs-queue
     ports:
       - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     volumes:
       - ./apps/api:/app
@@ -78,3 +111,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  localstack_data:

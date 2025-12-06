@@ -15,6 +15,7 @@ import { ExportControlsModule } from './export-controls/export-controls.module'
 import { PdfModule } from './pdf/pdf.module'
 import { InfluencersModule } from './influencers/influencers.module'
 import { IntegrationsModule } from './integrations/integrations.module'
+import { JobsModule } from './jobs/jobs.module'
 import { AuditInterceptor } from './common/interceptors/audit.interceptor'
 import { AuditService } from './common/services/audit.service'
 import { RedisService } from './common/services/redis.service'
@@ -54,6 +55,7 @@ import { HealthController } from './health/health.controller'
     PdfModule,
     InfluencersModule,
     IntegrationsModule,
+    JobsModule,
   ],
   providers: [
     {

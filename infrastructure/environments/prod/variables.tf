@@ -214,3 +214,23 @@ variable "github_repo" {
   description = "GitHub repository name"
   type        = string
 }
+
+# Resend DNS Variables
+variable "enable_resend_dns" {
+  description = "Enable Resend DNS configuration"
+  type        = bool
+  default     = false
+}
+
+variable "resend_dkim_value" {
+  description = "DKIM value from Resend for domain verification"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "resend_dmarc_policy" {
+  description = "DMARC policy for email authentication"
+  type        = string
+  default     = "v=DMARC1; p=none;"
+}

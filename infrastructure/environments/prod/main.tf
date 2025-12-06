@@ -164,3 +164,21 @@ module "route53" {
 
   depends_on = [module.alb]
 }
+
+# Resend DNS Module (optional)
+module "resend_dns" {
+  count  = var.domain_name != "" && var.enable_resend_dns ? 1 : 0
+  source = "../../modules/resend-dns"
+
+  environment = var.environment
+  zone_id     = var.route53_zone_id
+  domain_name = var.domain_name
+  subdomain   = ""  # Use root domain for emails, not environment subdomain
+  dkim_value  = var.resend_dkim_value
+
+  enable_resend    = true
+  enable_sending   = true
+  enable_dmarc     = true
+  dmarc_policy     = var.resend_dmarc_policy
+  enable_receiving = false
+}

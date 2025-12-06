@@ -110,6 +110,27 @@ output "github_oidc_provider_arn" {
   value       = module.github_oidc.oidc_provider_arn
 }
 
+# Resend DNS Outputs
+output "resend_sending_domain" {
+  description = "Resend sending domain"
+  value       = var.domain_name != "" && var.enable_resend_dns ? module.resend_dns[0].sending_domain : "Not configured"
+}
+
+output "resend_dkim_record" {
+  description = "Resend DKIM record name"
+  value       = var.domain_name != "" && var.enable_resend_dns ? module.resend_dns[0].dkim_record_name : "Not configured"
+}
+
+output "resend_spf_record" {
+  description = "Resend SPF record name"
+  value       = var.domain_name != "" && var.enable_resend_dns ? module.resend_dns[0].spf_record_name : "Not configured"
+}
+
+output "resend_dmarc_record" {
+  description = "Resend DMARC record name"
+  value       = var.domain_name != "" && var.enable_resend_dns ? module.resend_dns[0].dmarc_record_name : "Not configured"
+}
+
 # Deployment Information
 output "deployment_info" {
   description = "Important deployment information"

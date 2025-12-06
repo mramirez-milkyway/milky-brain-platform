@@ -46,7 +46,7 @@ These are the rules any AI agent MUST follow without exception.
 * Tests must isolate logic (mock DB/network).
 * Files ends with `.spec.ts` and live under `/tests/unit` inside the app folder.
 * Use HTTP-only, Secure cookies for communication; include CSRF tokens for mutating requests.
-* Background jobs must use **Celery + SQS**.
+* Background jobs must use **SQS + Lambda**.
 * Configuration strictly via environment variables (.env files).
 
 ---

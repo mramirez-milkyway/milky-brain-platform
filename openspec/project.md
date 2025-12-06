@@ -36,7 +36,7 @@
 * Tests must isolate logic (mock DB/network).
 * Files ends with `.spec.ts` and live under `/tests/unit` inside the app folder.
 * Use HTTP-only, Secure cookies for communication; include CSRF tokens for mutating requests.
-* Background jobs must use **Celery + SQS**.
+* Background jobs must use **Lambda + SQS**.
 * Configuration strictly via environment variables (.env files).
 
 ---

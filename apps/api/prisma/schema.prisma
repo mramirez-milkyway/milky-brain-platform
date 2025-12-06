@@ -27,6 +27,7 @@ model User {
   notifications   Notification[]
   settingsUpdated Setting[]
   invitation      UserInvitation?
+  jobs            Job[]
 
   @@index([email])
   @@map("users")
@@ -202,7 +203,7 @@ model AuditEvent {
   @@map("audit_events")
 }
 
-// Job model (for BullMQ tracking)
+// Job model (for async job processing)
 model Job {
   id          Int       @id @default(autoincrement())
   taskId      String    @unique @map("task_id")
@@ -210,17 +211,37 @@ model Job {
   status      JobStatus @default(PENDING)
   queue       String    @default("default")
   attempts    Int       @default(0)
-  maxAttempts Int       @default(5) @map("max_attempts")
+  maxAttempts Int       @default(3) @map("max_attempts")
   errorReason String?   @map("error_reason")
-  meta        Json?
+
+  // File handling
+  fileUrl  String? @map("file_url")
+  fileKey  String? @map("file_key")
+  fileName String? @map("file_name")
+
+  // Enhanced metadata
+  payload Json?
+  result  Json?
+  meta    Json?
+
+  // User tracking
+  userId Int? @map("user_id")
+
+  // Timestamps
   startedAt   DateTime? @map("started_at")
   completedAt DateTime? @map("completed_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
+  // Relationships
+  user User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  logs JobLog[]
+
   @@index([taskId])
   @@index([jobType])
   @@index([status])
+  @@index([userId])
+  @@index([createdAt])
   @@map("jobs")
 }
 
@@ -230,6 +251,31 @@ enum JobStatus {
   COMPLETED
   FAILED
   RETRYING
+}
+
+// JobLog model (detailed execution logs)
+model JobLog {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  level     LogLevel @default(INFO)
+  message   String   @db.Text
+  rowNumber Int?     @map("row_number")
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([level])
+  @@index([createdAt])
+  @@map("job_logs")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
 }
 
 // ExportLog model - tracks export quota consumption

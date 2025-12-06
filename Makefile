@@ -37,6 +37,19 @@ help:
 	@echo "  make docker-push-web         - Push Web image to ECR"
 	@echo "  make docker-push-all         - Push all images to ECR"
 	@echo ""
+	@echo "Lambda Functions:"
+	@echo "  make lambda-build            - Build Lambda job processor"
+	@echo "  make lambda-deploy ENV=qa    - Deploy Lambda to environment"
+	@echo "  make lambda-logs ENV=qa      - Tail Lambda logs"
+	@echo ""
+	@echo "LocalStack (Local Development):"
+	@echo "  make localstack-up           - Start LocalStack"
+	@echo "  make localstack-setup        - Setup LocalStack infrastructure (Terraform)"
+	@echo "  make localstack-test         - Test LocalStack infrastructure"
+	@echo "  make localstack-destroy      - Destroy LocalStack infrastructure"
+	@echo "  make localstack-logs         - View LocalStack logs"
+	@echo "  make localstack-restart      - Restart LocalStack"
+	@echo ""
 	@echo "Testing & Quality:"
 	@echo "  make test          - Run all tests"
 	@echo "  make lint          - Lint all code"
@@ -233,6 +246,31 @@ deploy-qa: docker-build-all
 	$(MAKE) docker-push-all ECR_REGISTRY=$(ECR_REGISTRY)
 	@echo "Images pushed. Deploy via GitHub Actions or SSH to EC2 and run /opt/app/deploy.sh"
 
+# Lambda commands
+lambda-build:
+	@echo "Building Lambda function..."
+	cd lambdas/job-processor && npm install && npm run build
+
+lambda-deploy:
+	@if [ -z "$(ENV)" ]; then \
+		echo "Error: ENV variable is required. Usage: make lambda-deploy ENV=qa"; \
+		exit 1; \
+	fi
+	@echo "Deploying Lambda to $(ENV) environment..."
+	cd lambdas/job-processor && \
+	aws lambda update-function-code \
+		--function-name $(ENV)-milky-way-admin-panel-job-processor \
+		--zip-file fileb://lambda.zip \
+		--region eu-south-2
+
+lambda-logs:
+	@if [ -z "$(ENV)" ]; then \
+		echo "Error: ENV variable is required. Usage: make lambda-logs ENV=qa"; \
+		exit 1; \
+	fi
+	@echo "Tailing Lambda logs for $(ENV)..."
+	aws logs tail /aws/lambda/$(ENV)-milky-way-admin-panel-job-processor --follow --region eu-south-2
+
 deploy-prod: docker-build-all
 	@echo "Deploying to Production environment..."
 	@echo "Note: Ensure ECR_REGISTRY is set and you're authenticated with ECR"
@@ -243,3 +281,47 @@ deploy-prod: docker-build-all
 	fi
 	$(MAKE) docker-push-all ECR_REGISTRY=$(ECR_REGISTRY)
 	@echo "Images pushed. Deploy via GitHub Actions or SSH to EC2 and run /opt/app/deploy.sh"
+
+# LocalStack commands
+localstack-up:
+	@echo "Starting LocalStack..."
+	docker-compose up -d localstack
+	@echo "Waiting for LocalStack to be healthy..."
+	@docker-compose ps localstack | grep -q "healthy" && echo "✅ LocalStack is ready!" || \
+		(echo "Waiting for health check..." && sleep 5 && \
+		docker-compose ps localstack | grep -q "healthy" && echo "✅ LocalStack is ready!" || \
+		(echo "Still starting..." && sleep 10 && \
+		docker-compose ps localstack | grep -q "healthy" && echo "✅ LocalStack is ready!" || \
+		(echo "❌ LocalStack health check failed. Check logs with: make localstack-logs" && docker-compose logs --tail=50 localstack)))
+
+localstack-setup:
+	@echo "Setting up LocalStack infrastructure..."
+	@bash scripts/setup-localstack.sh
+
+localstack-test:
+	@echo "Testing LocalStack infrastructure..."
+	@bash scripts/test-localstack.sh
+
+localstack-destroy:
+	@echo "Destroying LocalStack infrastructure..."
+	cd infrastructure/environments/local && terraform destroy -auto-approve
+	@echo "✅ LocalStack infrastructure destroyed"
+
+localstack-logs:
+	@echo "Viewing LocalStack logs..."
+	docker-compose logs -f localstack
+
+localstack-restart:
+	@echo "Restarting LocalStack..."
+	docker-compose restart localstack
+	@echo "Waiting for LocalStack to be ready..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		if curl -s http://localhost:4566/_localstack/health > /dev/null 2>&1; then \
+			echo "✅ LocalStack is ready!"; \
+			exit 0; \
+		fi; \
+		echo "  Attempt $$i/20..."; \
+		sleep 3; \
+	done; \
+	echo "❌ LocalStack failed to start after 60 seconds"; \
+	exit 1

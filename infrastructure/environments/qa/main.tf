@@ -209,3 +209,166 @@ module "route53" {
 
   depends_on = [module.alb]
 }
+
+# Resend DNS Module (optional)
+module "resend_dns" {
+  count  = var.domain_name != "" && var.enable_resend_dns ? 1 : 0
+  source = "../../modules/resend-dns"
+
+  environment = var.environment
+  zone_id     = var.route53_zone_id
+  domain_name = var.domain_name
+  subdomain   = ""  # Use root domain for emails, not environment subdomain
+  dkim_value  = var.resend_dkim_value
+
+  enable_resend    = true
+  enable_sending   = true
+  enable_dmarc     = true
+  dmarc_policy     = var.resend_dmarc_policy
+  enable_receiving = false
+}
+
+# ============================================
+# Job Processing Infrastructure
+# ============================================
+
+# Lambda Job Processor Module - Created first without S3/SQS dependencies
+module "lambda_job_processor" {
+  source = "../../modules/lambda-job-processor"
+
+  environment        = var.environment
+  project_name       = var.project_name
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+
+  # Use placeholder values - will be updated via environment variables at runtime
+  s3_bucket_arn  = "arn:aws:s3:::${var.environment}-${var.project_name}-jobs"
+  s3_bucket_name = "${var.environment}-${var.project_name}-jobs"
+  sqs_queue_arn  = "arn:aws:sqs:${var.aws_region}:*:${var.environment}-${var.project_name}-jobs"
+  sqs_queue_url  = "https://sqs.${var.aws_region}.amazonaws.com/*/${var.environment}-${var.project_name}-jobs"
+
+  database_url = "postgresql://${var.db_master_username}:${var.db_master_password}@${module.rds.db_instance_address}:${module.rds.db_instance_port}/${var.database_name}"
+  aws_region   = var.aws_region
+
+  runtime     = "nodejs20.x"
+  timeout     = 900
+  memory_size = 512
+
+  log_retention_days = 30
+  log_level          = var.environment == "prod" ? "info" : "debug"
+
+  sqs_batch_size      = 10
+  maximum_concurrency = 10
+
+  depends_on = [module.rds]
+}
+
+# S3 Jobs Module
+module "s3_jobs" {
+  source = "../../modules/s3-jobs"
+
+  environment  = var.environment
+  project_name = var.project_name
+
+  enable_versioning = true
+  lifecycle_days    = 90
+
+  cors_allowed_origins = var.cors_allowed_origins
+}
+
+# SQS Jobs Module
+module "sqs_jobs" {
+  source = "../../modules/sqs-jobs"
+
+  environment  = var.environment
+  project_name = var.project_name
+
+  visibility_timeout_seconds = 900 # Match Lambda timeout
+  max_receive_count          = 3
+
+  enable_dlq_alarm         = true
+  enable_queue_depth_alarm = true
+  enable_message_age_alarm = true
+
+  queue_depth_threshold = 1000
+  message_age_threshold = 3600
+}
+
+# Update RDS security group to allow Lambda access
+resource "aws_security_group_rule" "rds_from_lambda" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = module.rds.db_security_group_id
+  source_security_group_id = module.lambda_job_processor.lambda_security_group_id
+  description              = "PostgreSQL from Lambda"
+}
+
+# Add S3 and SQS access to EC2 IAM role
+resource "aws_iam_role_policy" "ec2_s3_jobs_access" {
+  name = "${var.environment}-ec2-s3-jobs-access"
+  role = module.ec2.iam_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          module.s3_jobs.bucket_arn,
+          "${module.s3_jobs.bucket_arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "ec2_sqs_jobs_access" {
+  name = "${var.environment}-ec2-sqs-jobs-access"
+  role = module.ec2.iam_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl"
+        ]
+        Resource = module.sqs_jobs.queue_arn
+      }
+    ]
+  })
+}
+
+# Store job processing configuration in Secrets Manager
+resource "aws_secretsmanager_secret" "job_processing" {
+  name                    = "${var.environment}/job-processing-config"
+  description             = "Job processing configuration for ${var.environment}"
+  recovery_window_in_days = 7
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.environment}-job-processing-config"
+    }
+  )
+}
+
+resource "aws_secretsmanager_secret_version" "job_processing" {
+  secret_id = aws_secretsmanager_secret.job_processing.id
+  secret_string = jsonencode({
+    s3_bucket_name  = module.s3_jobs.bucket_name
+    sqs_queue_url   = module.sqs_jobs.queue_url
+    lambda_function = module.lambda_job_processor.lambda_function_name
+  })
+}
