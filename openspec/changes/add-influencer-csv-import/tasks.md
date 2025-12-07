@@ -1,29 +1,29 @@
 # Implementation Tasks
 
 ## 1. Lambda Handler
-- [ ] 1.1 Install CSV parsing library: `cd lambdas/job-processor && npm install papaparse`
-- [ ] 1.2 Create `lambdas/job-processor/src/handlers/influencer-import-handler.ts` with IJobHandler implementation
-- [ ] 1.3 Implement CSV parsing with papaparse
-- [ ] 1.4 Implement column mapping logic (map CSV columns to DB fields based on payload.columnMapping)
-- [ ] 1.5 Implement duplicate detection by handle (case-insensitive query)
-- [ ] 1.6 Implement skip vs update logic based on payload.duplicateHandling
-- [ ] 1.7 Implement data spreading across tables: creator, creator_social, customer, campaign, post, campaign_creator
-- [ ] 1.8 Implement row-level validation (required fields per schema)
-- [ ] 1.9 Implement error logging with rowNumber for failed rows
-- [ ] 1.10 Implement success/failure summary in job result
-- [ ] 1.11 Register handler in `handler-registry.ts`: `this.register('influencer_import', new InfluencerImportHandler())`
-- [ ] 1.12 Rebuild and deploy Lambda
+- [x] 1.1 Install CSV parsing library: `cd lambdas/job-processor && npm install papaparse`
+- [x] 1.2 Create `lambdas/job-processor/src/handlers/influencer-import-handler.ts` with IJobHandler implementation
+- [x] 1.3 Implement CSV parsing with papaparse
+- [x] 1.4 Implement column mapping logic (map CSV columns to DB fields based on payload.columnMapping)
+- [x] 1.5 Implement duplicate detection by name + platform (case-insensitive query)
+- [x] 1.6 Implement skip vs update logic based on payload.duplicateHandling
+- [~] 1.7 Implemented for Influencer table (creator/creator_social not used per design decision)
+- [x] 1.8 Implement row-level validation (required fields per schema)
+- [x] 1.9 Implement error logging with rowNumber for failed rows
+- [x] 1.10 Implement success/failure summary in job result
+- [x] 1.11 Register handler in `handler-registry.ts`: `this.register('influencer_import', new InfluencerImportHandler())`
+- [x] 1.12 Rebuild and deploy Lambda
 
 ## 2. Backend API
-- [ ] 2.1 Update `apps/api/src/jobs/jobs.controller.ts` to validate `influencer:Import` permission for jobType="influencer_import"
-- [ ] 2.2 Add file type validation (accept only .csv, .txt)
-- [ ] 2.3 Add file size validation (10MB max) with HTTP 413 response
-- [ ] 2.4 Document job payload schema for influencer_import in DTOs
+- [x] 2.1 Update `apps/api/src/jobs/jobs.controller.ts` to validate `influencer:Import` permission for jobType="influencer_import"
+- [x] 2.2 Add file type validation (accept only .csv, .txt)
+- [x] 2.3 Add file size validation (10MB max) with HTTP 413 response
+- [x] 2.4 Document job payload schema for influencer_import in DTOs
 
 ## 3. RBAC Permissions
-- [ ] 3.1 Add `influencer:Import` permission to database seed/migration
-- [ ] 3.2 Assign `influencer:Import` to Admin role
-- [ ] 3.3 Assign `influencer:Import` to Editor role (if applicable)
+- [x] 3.1 Add `influencer:Import` permission to database seed/migration
+- [x] 3.2 Assign `influencer:Import` to Admin role
+- [x] 3.3 Assign `influencer:Import` to Editor role
 - [ ] 3.4 Update frontend permission checks to use `influencer:Import`
 
 ## 4. Frontend: Import Center UI

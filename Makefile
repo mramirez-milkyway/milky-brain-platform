@@ -295,17 +295,13 @@ localstack-up:
 		(echo "❌ LocalStack health check failed. Check logs with: make localstack-logs" && docker-compose logs --tail=50 localstack)))
 
 localstack-setup:
-	@echo "Setting up LocalStack infrastructure..."
-	@bash scripts/setup-localstack.sh
+	@bash scripts/localstack-init.sh
 
 localstack-test:
-	@echo "Testing LocalStack infrastructure..."
 	@bash scripts/test-localstack.sh
 
 localstack-destroy:
-	@echo "Destroying LocalStack infrastructure..."
-	cd infrastructure/environments/local && terraform destroy -auto-approve
-	@echo "✅ LocalStack infrastructure destroyed"
+	@bash scripts/localstack-destroy.sh
 
 localstack-logs:
 	@echo "Viewing LocalStack logs..."

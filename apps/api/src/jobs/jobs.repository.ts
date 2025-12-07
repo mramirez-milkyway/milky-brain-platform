@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaClient, Job, JobStatus, JobLog, LogLevel, Prisma } from '@prisma/client';
+import { Injectable } from '@nestjs/common'
+import { PrismaClient, Job, JobStatus, JobLog, LogLevel, Prisma } from '@prisma/client'
 
 /**
  * Generic repository for job data access.
@@ -14,10 +14,10 @@ export class JobsRepository {
   /**
    * Create a new job record
    */
-  async create(data: Prisma.JobCreateInput): Promise<Job> {
+  async create(data: Prisma.JobUncheckedCreateInput): Promise<Job> {
     return this.prisma.job.create({
       data,
-    });
+    })
   }
 
   /**
@@ -26,7 +26,7 @@ export class JobsRepository {
   async findById(id: number): Promise<Job | null> {
     return this.prisma.job.findUnique({
       where: { id },
-    });
+    })
   }
 
   /**
@@ -35,7 +35,7 @@ export class JobsRepository {
   async findByTaskId(taskId: string): Promise<Job | null> {
     return this.prisma.job.findUnique({
       where: { taskId },
-    });
+    })
   }
 
   /**
@@ -43,19 +43,19 @@ export class JobsRepository {
    * Generic query builder for flexible filtering
    */
   async findMany(options: {
-    jobType?: string;
-    status?: JobStatus;
-    userId?: number;
-    page: number;
-    pageSize: number;
+    jobType?: string
+    status?: JobStatus
+    userId?: number
+    page: number
+    pageSize: number
   }): Promise<[Job[], number]> {
-    const { jobType, status, userId, page, pageSize } = options;
+    const { jobType, status, userId, page, pageSize } = options
 
-    const where: Prisma.JobWhereInput = {};
+    const where: Prisma.JobWhereInput = {}
 
-    if (jobType) where.jobType = jobType;
-    if (status) where.status = status;
-    if (userId) where.userId = userId;
+    if (jobType) where.jobType = jobType
+    if (status) where.status = status
+    if (userId) where.userId = userId
 
     const [jobs, total] = await Promise.all([
       this.prisma.job.findMany({
@@ -65,9 +65,9 @@ export class JobsRepository {
         take: pageSize,
       }),
       this.prisma.job.count({ where }),
-    ]);
+    ])
 
-    return [jobs, total];
+    return [jobs, total]
   }
 
   /**
@@ -78,20 +78,26 @@ export class JobsRepository {
     taskId: string,
     status: JobStatus,
     data?: {
-      attempts?: number;
-      errorReason?: string;
-      result?: unknown;
-      startedAt?: Date;
-      completedAt?: Date;
-    },
+      attempts?: number
+      errorReason?: string
+      result?: unknown
+      startedAt?: Date
+      completedAt?: Date
+    }
   ): Promise<Job> {
+    const updateData: Prisma.JobUpdateInput = {
+      status,
+      ...(data?.attempts !== undefined && { attempts: data.attempts }),
+      ...(data?.errorReason !== undefined && { errorReason: data.errorReason }),
+      ...(data?.result !== undefined && { result: data.result as Prisma.InputJsonValue }),
+      ...(data?.startedAt !== undefined && { startedAt: data.startedAt }),
+      ...(data?.completedAt !== undefined && { completedAt: data.completedAt }),
+    }
+
     return this.prisma.job.update({
       where: { taskId },
-      data: {
-        status,
-        ...data,
-      },
-    });
+      data: updateData,
+    })
   }
 
   /**
@@ -101,7 +107,7 @@ export class JobsRepository {
     return this.prisma.jobLog.findMany({
       where: { jobId },
       orderBy: { createdAt: 'asc' },
-    });
+    })
   }
 
   /**
@@ -113,7 +119,7 @@ export class JobsRepository {
     level: LogLevel,
     message: string,
     meta?: unknown,
-    rowNumber?: number,
+    rowNumber?: number
   ): Promise<JobLog> {
     return this.prisma.jobLog.create({
       data: {
@@ -123,7 +129,7 @@ export class JobsRepository {
         meta: meta as Prisma.InputJsonValue,
         rowNumber,
       },
-    });
+    })
   }
 
   /**
@@ -134,6 +140,6 @@ export class JobsRepository {
     return this.prisma.job.update({
       where: { taskId },
       data,
-    });
+    })
   }
 }

@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
-import { JobStatus } from '@prisma/client';
-import { JobsRepository } from './jobs.repository';
-import { S3Service } from '../common/services/s3.service';
-import { SqsService } from '../common/services/sqs.service';
-import { CreateJobDto, JobResponseDto, JobQueryDto } from './dto';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { v4 as uuidv4 } from 'uuid'
+import { JobStatus, Prisma } from '@prisma/client'
+import { JobsRepository } from './jobs.repository'
+import { S3Service } from '../common/services/s3.service'
+import { SqsService } from '../common/services/sqs.service'
+import { CreateJobDto, JobResponseDto, JobQueryDto } from './dto'
 
 /**
  * Generic jobs service implementing business logic.
@@ -23,7 +23,7 @@ export class JobsService {
     private readonly repository: JobsRepository,
     private readonly s3Service: S3Service,
     private readonly sqsService: SqsService,
-    private readonly config: ConfigService,
+    private readonly config: ConfigService
   ) {}
 
   /**
@@ -38,36 +38,37 @@ export class JobsService {
   async createJob(
     userId: number,
     dto: CreateJobDto,
-    file?: Express.Multer.File,
+    file?: Express.Multer.File
   ): Promise<JobResponseDto> {
-    const taskId = uuidv4();
+    const taskId = uuidv4()
 
-    let fileUrl: string | undefined;
-    let fileKey: string | undefined;
-    let fileName: string | undefined;
+    let fileUrl: string | undefined
+    let fileKey: string | undefined
+    let fileName: string | undefined
 
     // Upload file to S3 if present
     if (file) {
-      const uploadResult = await this.s3Service.uploadJobFile(taskId, file);
-      fileUrl = uploadResult.url;
-      fileKey = uploadResult.key;
-      fileName = file.originalname;
+      const uploadResult = await this.s3Service.uploadJobFile(taskId, file)
+      fileUrl = uploadResult.url
+      fileKey = uploadResult.key
+      fileName = file.originalname
     }
 
     // Create job record
-    const job = await this.repository.create({
+    const jobData: Prisma.JobUncheckedCreateInput = {
       taskId,
       jobType: dto.jobType,
       status: JobStatus.PENDING,
       queue: dto.queue || 'default',
-      payload: dto.payload as any,
-      meta: dto.meta as any,
+      payload: dto.payload as Prisma.InputJsonValue,
+      meta: dto.meta as Prisma.InputJsonValue,
       userId,
       fileUrl,
       fileKey,
       fileName,
       maxAttempts: dto.maxAttempts || 3,
-    });
+    }
+    const job = await this.repository.create(jobData)
 
     // Send message to SQS for async processing
     await this.sqsService.sendJobMessage({
@@ -76,9 +77,9 @@ export class JobsService {
       payload: dto.payload,
       fileUrl,
       userId,
-    });
+    })
 
-    return this.mapToDto(job);
+    return this.mapToDto(job)
   }
 
   /**
@@ -86,18 +87,18 @@ export class JobsService {
    * Generic retrieval - works for any job type
    */
   async getJobById(id: number, userId?: number): Promise<JobResponseDto> {
-    const job = await this.repository.findById(id);
+    const job = await this.repository.findById(id)
 
     if (!job) {
-      throw new NotFoundException(`Job with ID ${id} not found`);
+      throw new NotFoundException(`Job with ID ${id} not found`)
     }
 
     // Check user ownership (unless admin)
     if (userId && job.userId !== userId) {
-      throw new NotFoundException(`Job with ID ${id} not found`);
+      throw new NotFoundException(`Job with ID ${id} not found`)
     }
 
-    return this.mapToDto(job);
+    return this.mapToDto(job)
   }
 
   /**
@@ -105,17 +106,17 @@ export class JobsService {
    * Alternative lookup method for external references
    */
   async getJobByTaskId(taskId: string, userId?: number): Promise<JobResponseDto> {
-    const job = await this.repository.findByTaskId(taskId);
+    const job = await this.repository.findByTaskId(taskId)
 
     if (!job) {
-      throw new NotFoundException(`Job with taskId ${taskId} not found`);
+      throw new NotFoundException(`Job with taskId ${taskId} not found`)
     }
 
     if (userId && job.userId !== userId) {
-      throw new NotFoundException(`Job with taskId ${taskId} not found`);
+      throw new NotFoundException(`Job with taskId ${taskId} not found`)
     }
 
-    return this.mapToDto(job);
+    return this.mapToDto(job)
   }
 
   /**
@@ -124,14 +125,14 @@ export class JobsService {
    */
   async listJobs(
     query: JobQueryDto,
-    userId?: number,
+    userId?: number
   ): Promise<{
-    data: JobResponseDto[];
-    total: number;
-    page: number;
-    pageSize: number;
+    data: JobResponseDto[]
+    total: number
+    page: number
+    pageSize: number
   }> {
-    const { jobType, status, page = 1, pageSize = 20 } = query;
+    const { jobType, status, page = 1, pageSize = 20 } = query
 
     const [jobs, total] = await this.repository.findMany({
       jobType,
@@ -139,14 +140,14 @@ export class JobsService {
       userId,
       page,
       pageSize,
-    });
+    })
 
     return {
       data: jobs.map((job) => this.mapToDto(job)),
       total,
       page,
       pageSize,
-    };
+    }
   }
 
   /**
@@ -154,17 +155,17 @@ export class JobsService {
    * Generic method - works for any job type
    */
   async getJobLogs(jobId: number, userId?: number): Promise<any[]> {
-    const job = await this.repository.findById(jobId);
+    const job = await this.repository.findById(jobId)
 
     if (!job) {
-      throw new NotFoundException(`Job with ID ${jobId} not found`);
+      throw new NotFoundException(`Job with ID ${jobId} not found`)
     }
 
     if (userId && job.userId !== userId) {
-      throw new NotFoundException(`Job with ID ${jobId} not found`);
+      throw new NotFoundException(`Job with ID ${jobId} not found`)
     }
 
-    return this.repository.findLogs(jobId);
+    return this.repository.findLogs(jobId)
   }
 
   /**
@@ -189,6 +190,6 @@ export class JobsService {
       completedAt: job.completedAt,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
-    };
+    }
   }
 }

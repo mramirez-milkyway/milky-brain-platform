@@ -26,12 +26,14 @@ export class S3Service {
   private bucketName: string
 
   constructor(private config: ConfigService) {
-    const s3Config: any = {
-      region: this.config.get('AWS_REGION') || 'eu-south-2',
-    }
-
     // Support LocalStack endpoint
     const endpointUrl = this.config.get('AWS_ENDPOINT_URL')
+    const region = this.config.get('AWS_REGION') || 'us-east-1'
+
+    const s3Config: any = {
+      region: endpointUrl ? 'us-east-1' : region, // LocalStack works best with us-east-1
+    }
+
     if (endpointUrl) {
       s3Config.endpoint = endpointUrl
       s3Config.forcePathStyle = true // Required for LocalStack
@@ -39,7 +41,7 @@ export class S3Service {
         accessKeyId: this.config.get('AWS_ACCESS_KEY_ID') || 'test',
         secretAccessKey: this.config.get('AWS_SECRET_ACCESS_KEY') || 'test',
       }
-      this.logger.log(`Using LocalStack endpoint: ${endpointUrl}`)
+      this.logger.log(`Using LocalStack endpoint: ${endpointUrl} with region us-east-1`)
     }
 
     this.s3Client = new S3Client(s3Config)

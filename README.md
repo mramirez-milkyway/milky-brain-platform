@@ -499,6 +499,7 @@ Follow the rules in `AGENTS.md`:
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) - Development rules and guidelines
+- [LOCAL_TESTING.md](LOCAL_TESTING.md) - Complete local development and testing guide
 - [Infrastructure Guide](infrastructure/README.md) - AWS deployment guide
 - [PRD](docs/prds/central-admin-panel-shell.prd.md) - Product requirements
 

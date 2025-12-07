@@ -1,7 +1,8 @@
 // Prisma schema for Central Admin Panel V1
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -325,7 +326,8 @@ model ExportControlSettings {
   @@map("export_control_settings")
 }
 
-// Influencer model - mock data for testing export controls
+// Influencer model - DEPRECATED - use Creator model instead
+// Keeping for backwards compatibility during migration
 model Influencer {
   id         Int      @id @default(autoincrement())
   name       String
@@ -336,6 +338,340 @@ model Influencer {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("influencers")
+}
+
+// Creator model - represents influencers/content creators
+model Creator {
+  id          Int     @id @default(autoincrement()) @map("id")
+  fullName    String  @map("full_name")
+  gender      String?
+  country     String?
+  city        String?
+  email       String?
+  phoneNumber String? @map("phone_number")
+
+  // Professional info
+  characteristics String? @db.Text
+  pastClients     String? @map("past_clients") @db.Text
+  pastCampaigns   String? @map("past_campaigns") @db.Text
+  comments        String? @db.Text
+
+  // Status and metadata
+  isActive        Boolean @default(true) @map("is_active")
+  languages       String? @db.Text // JSON array
+  categories      String? @db.Text // JSON array
+  internalTags    String? @map("internal_tags") @db.Text // JSON array
+  isBlacklisted   Boolean @default(false) @map("is_blacklisted")
+  blacklistReason String? @map("blacklist_reason") @db.Text
+
+  // Agency/Management
+  agencyName  String? @map("agency_name")
+  managerName String? @map("manager_name")
+  billingInfo String? @map("billing_info") @db.Text
+
+  // Campaign tracking
+  lastBrand             String?   @map("last_brand")
+  campaignsActive       Int?      @default(0) @map("campaigns_active")
+  lastCampaignCompleted DateTime? @map("last_campaign_completed")
+  lastFee               Decimal?  @map("last_fee") @db.Decimal(10, 2)
+  lastFeeDate           DateTime? @map("last_fee_date")
+  lastFeeContentType    String?   @map("last_fee_content_type")
+  lastCpv               Float?    @map("last_cpv")
+  lastCpm               Float?    @map("last_cpm")
+  last3CampaignsPerf    Json?     @map("last_3_campaigns_perf")
+  rateSource            String?   @map("rate_source")
+  internalRating        Float?    @map("internal_rating")
+
+  // Timestamps
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relationships
+  creatorSocials   CreatorSocial[]
+  campaignCreators CampaignCreator[]
+
+  @@index([fullName])
+  @@index([email])
+  @@index([isActive])
+  @@index([isBlacklisted])
+  @@map("creators")
+}
+
+// CreatorSocial model - social media accounts for creators
+model CreatorSocial {
+  id          Int     @id @default(autoincrement())
+  creatorId   Int     @map("creator_id")
+  socialMedia String  @map("social_media") // 'instagram', 'tiktok', 'youtube', etc.
+  handle      String
+  followers   Int?
+  tier        String?
+  socialLink  String? @map("social_link")
+
+  // Timestamps
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relationships
+  creator              Creator                        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  audienceAges         CreatorSocialAudienceAge[]
+  audienceCountries    CreatorSocialAudienceCountry[]
+  audienceCities       CreatorSocialAudienceCity[]
+  socialStatsIgPosts   SocialStatsIgPost[]
+  socialStatsIgStories SocialStatsIgStory[]
+  socialStatsIgReels   SocialStatsIgReel[]
+  socialStatsTtVideos  SocialStatsTtVideo[]
+  campaignCreators     CampaignCreator[]
+
+  @@unique([handle, socialMedia], name: "unique_handle_social_media")
+  @@index([creatorId])
+  @@index([socialMedia])
+  @@index([handle])
+  @@map("creator_socials")
+}
+
+// Audience demographics tables
+model CreatorSocialAudienceAge {
+  id                   Int      @id @default(autoincrement())
+  creatorSocialId      Int      @map("creator_social_id")
+  engagementRate       Decimal? @map("engagement_rate") @db.Decimal(5, 2)
+  pctWomen             Decimal? @map("pct_women") @db.Decimal(5, 2)
+  pctMen               Decimal? @map("pct_men") @db.Decimal(5, 2)
+  pctAge1824           Decimal? @map("pct_age_18_24") @db.Decimal(5, 2)
+  pctAge2534           Decimal? @map("pct_age_25_34") @db.Decimal(5, 2)
+  pctAge3544           Decimal? @map("pct_age_35_44") @db.Decimal(5, 2)
+  pctAge4554           Decimal? @map("pct_age_45_54") @db.Decimal(5, 2)
+  pctAge5564           Decimal? @map("pct_age_55_64") @db.Decimal(5, 2)
+  pctAge65Plus         Decimal? @map("pct_age_65_plus") @db.Decimal(5, 2)
+  followersCredibility Decimal? @map("followers_credibility") @db.Decimal(5, 2)
+  dataSource           String?  @map("data_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("creator_social_audience_ages")
+}
+
+model CreatorSocialAudienceCountry {
+  id              Int       @id @default(autoincrement())
+  creatorSocialId Int       @map("creator_social_id")
+  rank            Int?
+  country         String?
+  pct             Decimal?  @db.Decimal(5, 2)
+  city            String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("creator_social_audience_countries")
+}
+
+model CreatorSocialAudienceCity {
+  id              Int       @id @default(autoincrement())
+  creatorSocialId Int       @map("creator_social_id")
+  rank            Int?
+  pct             Decimal?  @db.Decimal(5, 2)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("creator_social_audience_cities")
+}
+
+// Social stats tables for different platforms
+model SocialStatsIgPost {
+  id              Int     @id @default(autoincrement())
+  creatorSocialId Int     @map("creator_social_id")
+  avgLikes        Int?    @map("avg_likes")
+  avgComments     Int?    @map("avg_comments")
+  avgShares       Int?    @map("avg_shares")
+  avgImpressions  Int?    @map("avg_impressions")
+  avgSaves        Int?    @map("avg_saves")
+  impressions     Int?
+  estReach        Int?    @map("est_reach")
+  cpe             Float?
+  cpc             Float?
+  cpm             Float?
+  dataSource      String? @map("data_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_ig_posts")
+}
+
+model SocialStatsIgStory {
+  id              Int     @id @default(autoincrement())
+  creatorSocialId Int     @map("creator_social_id")
+  avgViews        Int?    @map("avg_views")
+  linkClicks      Int?    @map("link_clicks")
+  engRate         Float?  @map("eng_rate")
+  impressions     Int?
+  growthSource    String? @map("growth_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_ig_stories")
+}
+
+model SocialStatsIgReel {
+  id              Int    @id @default(autoincrement())
+  creatorSocialId Int    @map("creator_social_id")
+  avgViews        Int?   @map("avg_views")
+  avgPlays        Int?   @map("avg_plays")
+  avgLikes        Int?   @map("avg_likes")
+  engagements     Int?
+  engRate         Float? @map("eng_rate")
+  estReach        Int?   @map("est_reach")
+  cpm             Float?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_ig_reels")
+}
+
+model SocialStatsTtVideo {
+  id              Int    @id @default(autoincrement())
+  creatorSocialId Int    @map("creator_social_id")
+  avgLikes        Int?   @map("avg_likes")
+  avgComments     Int?   @map("avg_comments")
+  avgShares       Int?   @map("avg_shares")
+  avgSaves        Int?   @map("avg_saves")
+  estViews        Int?   @map("est_views")
+  avgViewRate     Float? @map("avg_view_rate")
+  estCpv          Float? @map("est_cpv")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_tt_videos")
+}
+
+// Campaign model
+model Campaign {
+  id           Int       @id @default(autoincrement())
+  customerId   Int       @map("customer_id")
+  name         String
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  budget       Decimal?  @db.Decimal(10, 2)
+  currencyCode String?   @default("USD") @map("currency_code")
+  status       String?
+  notes        String?   @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  campaignCreators CampaignCreator[]
+  posts            Post[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("campaigns")
+}
+
+// Customer model
+model Customer {
+  id           Int     @id @default(autoincrement())
+  name         String
+  industry     String?
+  country      String?
+  contactName  String? @map("contact_name")
+  contactEmail String? @map("contact_email")
+  contactPhone String? @map("contact_phone")
+  notes        String? @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  campaigns Campaign[]
+
+  @@map("customers")
+}
+
+// CampaignCreator - junction table for many-to-many
+model CampaignCreator {
+  id               Int      @id @default(autoincrement())
+  campaignId       Int      @map("campaign_id")
+  creatorSocialId  Int      @map("creator_social_id")
+  status           String?
+  contentCost      Decimal? @map("content_cost") @db.Decimal(10, 2)
+  contentMediaCost Decimal? @map("content_media_cost") @db.Decimal(10, 2)
+  eventCost        Decimal? @map("event_cost") @db.Decimal(10, 2)
+  currencyCode     String?  @default("USD") @map("currency_code")
+  notes            String?  @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  campaign      Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+  creator       Creator?      @relation(fields: [creatorId], references: [id])
+  creatorId     Int?
+
+  @@index([campaignId])
+  @@index([creatorSocialId])
+  @@map("campaign_creators")
+}
+
+// Post model
+model Post {
+  id                Int       @id @default(autoincrement())
+  campaignCreatorId Int       @map("campaign_creator_id")
+  postUrl           String?   @map("post_url")
+  contentType       String?   @map("content_type")
+  publishedAt       DateTime? @map("published_at")
+  views             Int?
+  reach             Int?
+  likes             Int?
+  comments          Int?
+  saves             Int?
+  shares            Int?
+  clicksLink        Int?      @map("clicks_link")
+  cost              Decimal?  @db.Decimal(10, 2)
+  currencyCode      String?   @default("USD") @map("currency_code")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  campaign Campaign @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
+
+  @@index([campaignCreatorId])
+  @@map("posts")
 }
 
 // Notification model

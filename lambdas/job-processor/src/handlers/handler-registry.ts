@@ -1,5 +1,6 @@
-import { IJobHandler } from '../types';
-import { ExampleHandler } from './example-handler';
+import { IJobHandler } from '../types'
+import { ExampleHandler } from './example-handler'
+import { CreatorImportHandler } from './creator-import-handler'
 
 /**
  * Handler registry implementing Strategy pattern
@@ -17,17 +18,17 @@ import { ExampleHandler } from './example-handler';
  * ```
  */
 export class HandlerRegistry {
-  private handlers: Map<string, IJobHandler> = new Map();
+  private handlers: Map<string, IJobHandler> = new Map()
 
   constructor() {
     // Register default handlers here
     // Future handlers are added by importing and registering them
-    this.register('example', new ExampleHandler());
+    this.register('example', new ExampleHandler())
+    this.register('influencer_import', new CreatorImportHandler())
 
     // ============================================
     // ADD NEW HANDLERS HERE:
     // ============================================
-    // this.register('influencer_import', new InfluencerImportHandler());
     // this.register('creator_export', new CreatorExportHandler());
     // this.register('campaign_analysis', new CampaignAnalysisHandler());
     // ============================================
@@ -41,11 +42,11 @@ export class HandlerRegistry {
    */
   register(jobType: string, handler: IJobHandler): void {
     if (this.handlers.has(jobType)) {
-      console.warn(`Handler for job type '${jobType}' is being overwritten`);
+      console.warn(`Handler for job type '${jobType}' is being overwritten`)
     }
 
-    this.handlers.set(jobType, handler);
-    console.log(`Registered handler for job type: ${jobType}`);
+    this.handlers.set(jobType, handler)
+    console.log(`Registered handler for job type: ${jobType}`)
   }
 
   /**
@@ -55,7 +56,7 @@ export class HandlerRegistry {
    * @returns Handler instance or undefined if not registered
    */
   getHandler(jobType: string): IJobHandler | undefined {
-    return this.handlers.get(jobType);
+    return this.handlers.get(jobType)
   }
 
   /**
@@ -65,7 +66,7 @@ export class HandlerRegistry {
    * @returns true if handler is registered
    */
   hasHandler(jobType: string): boolean {
-    return this.handlers.has(jobType);
+    return this.handlers.has(jobType)
   }
 
   /**
@@ -73,7 +74,7 @@ export class HandlerRegistry {
    * Useful for debugging and validation
    */
   getRegisteredTypes(): string[] {
-    return Array.from(this.handlers.keys());
+    return Array.from(this.handlers.keys())
   }
 
   /**
@@ -82,6 +83,6 @@ export class HandlerRegistry {
    * @param jobType - Job type identifier
    */
   unregister(jobType: string): boolean {
-    return this.handlers.delete(jobType);
+    return this.handlers.delete(jobType)
   }
 }

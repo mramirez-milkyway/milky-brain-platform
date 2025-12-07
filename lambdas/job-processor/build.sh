@@ -18,7 +18,10 @@ cd dist && npx prisma generate && cd ..
 
 # Install production dependencies
 echo "Installing production dependencies..."
-npm ci --production --prefix ./dist
+cp package.json dist/
+cd dist
+npm install --production --omit=dev
+cd ..
 
 # Create deployment package
 echo "Creating deployment package..."

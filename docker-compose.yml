@@ -39,7 +39,7 @@ services:
       - '4566:4566' # LocalStack edge port
       - '4510-4559:4510-4559' # External service port range
     environment:
-      - SERVICES=s3,sqs,lambda,secretsmanager,cloudwatch,logs
+      - SERVICES=s3,sqs,lambda,iam,secretsmanager,cloudwatch,logs
       - DEBUG=1
       - LAMBDA_EXECUTOR=docker
       - DOCKER_HOST=unix:///var/run/docker.sock

@@ -71,6 +71,7 @@ These are the rules any AI agent MUST follow without exception.
 * If something is unclear, ask for clarification — **never assume.**
 * The app is a turborepo monorepo
 * Usage of type `any` is STRICLY PROHIBITED, `unknown` must be used instead, and parsed to a type when needed.
+* Do not create a lot of MD files for everything. Just keep one per module (example: Infra, API, Lambdas, etc, and maintain them as long as the project grows)
 
 ---
 
