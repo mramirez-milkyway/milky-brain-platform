@@ -70,7 +70,7 @@ variable "memory_size" {
 variable "lambda_zip_path" {
   description = "Path to Lambda deployment package"
   type        = string
-  default     = "../../lambdas/job-processor/lambda.zip"
+  default     = "../../../lambdas/job-processor/lambda.zip"
 }
 
 variable "log_retention_days" {

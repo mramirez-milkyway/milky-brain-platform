@@ -87,7 +87,7 @@ export class CreatorImportHandler extends BaseJobHandler {
     if (parseResult.errors.length > 0) {
       await this.logWarning(
         context,
-        `CSV parsing warnings: ${parseResult.errors.map((e) => e.message).join(', ')}`
+        `CSV parsing warnings: ${parseResult.errors.map((e: Papa.ParseError) => e.message).join(', ')}`
       )
     }
 

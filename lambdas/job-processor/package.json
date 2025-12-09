@@ -16,7 +16,7 @@
     "papaparse": "^5.5.3"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.119",
+    "@types/aws-lambda": "^8.10.159",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.11.0",
     "@types/papaparse": "^5.5.1",

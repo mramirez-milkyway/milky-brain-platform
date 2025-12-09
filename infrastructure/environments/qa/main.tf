@@ -218,7 +218,7 @@ module "resend_dns" {
   environment = var.environment
   zone_id     = var.route53_zone_id
   domain_name = var.domain_name
-  subdomain   = ""  # Use root domain for emails, not environment subdomain
+  subdomain   = "" # Use root domain for emails, not environment subdomain
   dkim_value  = var.resend_dkim_value
 
   enable_resend    = true
@@ -232,38 +232,7 @@ module "resend_dns" {
 # Job Processing Infrastructure
 # ============================================
 
-# Lambda Job Processor Module - Created first without S3/SQS dependencies
-module "lambda_job_processor" {
-  source = "../../modules/lambda-job-processor"
-
-  environment        = var.environment
-  project_name       = var.project_name
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnet_ids
-
-  # Use placeholder values - will be updated via environment variables at runtime
-  s3_bucket_arn  = "arn:aws:s3:::${var.environment}-${var.project_name}-jobs"
-  s3_bucket_name = "${var.environment}-${var.project_name}-jobs"
-  sqs_queue_arn  = "arn:aws:sqs:${var.aws_region}:*:${var.environment}-${var.project_name}-jobs"
-  sqs_queue_url  = "https://sqs.${var.aws_region}.amazonaws.com/*/${var.environment}-${var.project_name}-jobs"
-
-  database_url = "postgresql://${var.db_master_username}:${var.db_master_password}@${module.rds.db_instance_address}:${module.rds.db_instance_port}/${var.database_name}"
-  aws_region   = var.aws_region
-
-  runtime     = "nodejs20.x"
-  timeout     = 900
-  memory_size = 512
-
-  log_retention_days = 30
-  log_level          = var.environment == "prod" ? "info" : "debug"
-
-  sqs_batch_size      = 10
-  maximum_concurrency = 10
-
-  depends_on = [module.rds]
-}
-
-# S3 Jobs Module
+# S3 Jobs Module - Create first
 module "s3_jobs" {
   source = "../../modules/s3-jobs"
 
@@ -276,7 +245,7 @@ module "s3_jobs" {
   cors_allowed_origins = var.cors_allowed_origins
 }
 
-# SQS Jobs Module
+# SQS Jobs Module - Create second
 module "sqs_jobs" {
   source = "../../modules/sqs-jobs"
 
@@ -292,6 +261,39 @@ module "sqs_jobs" {
 
   queue_depth_threshold = 1000
   message_age_threshold = 3600
+}
+
+# Lambda Job Processor Module - Create last with real ARNs
+module "lambda_job_processor" {
+  source = "../../modules/lambda-job-processor"
+
+  environment        = var.environment
+  project_name       = var.project_name
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+
+  # Use actual ARNs from created resources
+  s3_bucket_arn  = module.s3_jobs.bucket_arn
+  s3_bucket_name = module.s3_jobs.bucket_name
+  sqs_queue_arn  = module.sqs_jobs.queue_arn
+  sqs_queue_url  = module.sqs_jobs.queue_url
+
+  database_url = "postgresql://${var.db_master_username}:${var.db_master_password}@${module.rds.db_instance_address}:${module.rds.db_instance_port}/${var.database_name}"
+  aws_region   = var.aws_region
+
+  runtime     = "nodejs20.x"
+  timeout     = 900
+  memory_size = 512
+
+  log_retention_days = 30
+  log_level          = var.environment == "prod" ? "info" : "debug"
+
+  sqs_batch_size      = 10
+  maximum_concurrency = 10
+
+  create_event_source_mapping = true
+
+  depends_on = [module.rds, module.s3_jobs, module.sqs_jobs]
 }
 
 # Update RDS security group to allow Lambda access
