@@ -9,6 +9,7 @@ module "vpc" {
   vpc_cidr           = var.vpc_cidr
   az_count           = var.az_count
   enable_nat_gateway = var.enable_nat_gateway
+  aws_region         = var.aws_region
 }
 
 # GitHub OIDC Module

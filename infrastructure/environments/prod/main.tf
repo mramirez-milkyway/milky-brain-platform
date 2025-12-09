@@ -20,6 +20,7 @@ module "vpc" {
   vpc_cidr           = var.vpc_cidr
   az_count           = var.az_count
   enable_nat_gateway = var.enable_nat_gateway
+  aws_region         = var.aws_region
 }
 
 # GitHub OIDC Module
@@ -173,7 +174,7 @@ module "resend_dns" {
   environment = var.environment
   zone_id     = var.route53_zone_id
   domain_name = var.domain_name
-  subdomain   = ""  # Use root domain for emails, not environment subdomain
+  subdomain   = "" # Use root domain for emails, not environment subdomain
   dkim_value  = var.resend_dkim_value
 
   enable_resend    = true

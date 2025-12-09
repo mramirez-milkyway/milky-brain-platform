@@ -20,3 +20,8 @@ variable "enable_nat_gateway" {
   type        = bool
   default     = true
 }
+
+variable "aws_region" {
+  description = "AWS region for VPC endpoints"
+  type        = string
+}
