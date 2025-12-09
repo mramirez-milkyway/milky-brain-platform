@@ -52,7 +52,7 @@ echo -e "${YELLOW}Image Tag: $IMAGE_TAG${NC}"
 
 # Authenticate with ECR
 echo -e "${GREEN}Authenticating with ECR...${NC}"
-aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+aws ecr get-login-password --region "$AWS_REGION" | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
 # Export environment variables for docker-compose and fetch-secrets script
 export ECR_REGISTRY="$ECR_REGISTRY"
@@ -80,24 +80,24 @@ fi
 echo -e "${GREEN}Pulling latest images (tag: $IMAGE_TAG)...${NC}"
 
 # Pull images explicitly
-docker pull "$ECR_REGISTRY/milky-way-api:$IMAGE_TAG"
-docker pull "$ECR_REGISTRY/milky-way-web-admin:$IMAGE_TAG"
+sudo docker pull "$ECR_REGISTRY/milky-way-api:$IMAGE_TAG"
+sudo docker pull "$ECR_REGISTRY/milky-way-web-admin:$IMAGE_TAG"
 
 # Show what images we're about to use
 echo -e "${GREEN}Images to be deployed:${NC}"
-docker images | grep milky-way | head -n 5
+sudo docker images | grep milky-way | head -n 5
 
 # Stop existing containers gracefully
 echo -e "${GREEN}Stopping existing containers...${NC}"
-docker-compose -f docker-compose.prod.yml down --timeout 30 || true
+sudo docker-compose -f docker-compose.prod.yml down --timeout 30 || true
 
 # Run database migrations
 echo -e "${GREEN}Running database migrations...${NC}"
-docker-compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy || echo -e "${YELLOW}Migration warning - check logs${NC}"
+sudo docker-compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy || echo -e "${YELLOW}Migration warning - check logs${NC}"
 
 # Start services with new images
 echo -e "${GREEN}Starting services...${NC}"
-docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose -f docker-compose.prod.yml up -d
 
 # Wait for services to be healthy
 echo -e "${GREEN}Waiting for services to start...${NC}"
@@ -109,7 +109,7 @@ if curl -f http://localhost:4000/api/health > /dev/null 2>&1; then
     echo -e "${GREEN}✓ API is healthy${NC}"
 else
     echo -e "${RED}✗ API health check failed${NC}"
-    docker-compose -f docker-compose.prod.yml logs --tail=50 api
+    sudo docker-compose -f docker-compose.prod.yml logs --tail=50 api
     exit 1
 fi
 
@@ -119,16 +119,16 @@ if curl -f http://localhost:3000 > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Web is healthy${NC}"
 else
     echo -e "${RED}✗ Web health check failed${NC}"
-    docker-compose -f docker-compose.prod.yml logs --tail=50 web
+    sudo docker-compose -f docker-compose.prod.yml logs --tail=50 web
     exit 1
 fi
 
 # Show running containers
 echo -e "${GREEN}Running containers:${NC}"
-docker-compose -f docker-compose.prod.yml ps
+sudo docker-compose -f docker-compose.prod.yml ps
 
 # Clean up old images
 echo -e "${GREEN}Cleaning up old images...${NC}"
-docker image prune -f
+sudo docker image prune -f
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
