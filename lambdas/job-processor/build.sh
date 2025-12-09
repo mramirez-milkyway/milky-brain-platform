@@ -6,15 +6,15 @@ echo "Building Lambda package..."
 # Clean previous build
 rm -rf dist *.zip
 
-# Compile TypeScript
+# Copy Prisma schema and generate client BEFORE compiling TypeScript
+echo "Generating Prisma client..."
+mkdir -p prisma
+cp ../../apps/api/prisma/schema.prisma prisma/schema.prisma
+npx prisma generate
+
+# Compile TypeScript (now Prisma types are available)
 echo "Compiling TypeScript..."
 npx tsc
-
-# Copy Prisma schema and generate client
-echo "Generating Prisma client..."
-mkdir -p dist/prisma
-cp ../../apps/api/prisma/schema.prisma dist/prisma/
-cd dist && npx prisma generate && cd ..
 
 # Install production dependencies in a clean directory
 echo "Installing production dependencies..."

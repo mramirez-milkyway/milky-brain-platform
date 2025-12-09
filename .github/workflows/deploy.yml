@@ -135,16 +135,19 @@ jobs:
           # Clean previous build
           rm -rf dist *.zip
 
-          # Compile TypeScript
-          echo "Compiling TypeScript..."
+          # Install dependencies first
+          echo "Installing dependencies..."
           npm install
-          npx tsc
 
-          # Copy Prisma schema and generate client
+          # Copy Prisma schema and generate client BEFORE compiling TypeScript
           echo "Generating Prisma client..."
-          mkdir -p dist/prisma
-          cp ../../apps/api/prisma/schema.prisma dist/prisma/
-          cd dist && npx prisma generate && cd ..
+          mkdir -p prisma
+          cp ../../apps/api/prisma/schema.prisma prisma/schema.prisma
+          npx prisma generate
+
+          # Compile TypeScript (now Prisma types are available)
+          echo "Compiling TypeScript..."
+          npx tsc
 
           # Install production dependencies
           echo "Installing production dependencies..."
