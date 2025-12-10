@@ -46,6 +46,7 @@ export class JobsController {
    *
    * Job-specific validations:
    * - influencer_import: Requires influencer:Import permission, file required, .csv/.txt only, 10MB max
+   * - client_import: Requires client:Import permission, file required, .csv/.txt only, 10MB max
    */
   @Post()
   @RequirePermission('job:Create')
@@ -58,23 +59,28 @@ export class JobsController {
     const userId = req.user.userId
 
     // Job-type specific validation
-    if (dto.jobType === 'influencer_import') {
-      // Check for influencer:Import permission using RBAC service
+    if (dto.jobType === 'influencer_import' || dto.jobType === 'client_import') {
+      // Determine required permission based on job type
+      const requiredPermission =
+        dto.jobType === 'influencer_import' ? 'influencer:Import' : 'client:Import'
+      const entityName = dto.jobType === 'influencer_import' ? 'influencers' : 'clients'
+
+      // Check for required permission using RBAC service
       const hasPermission = await this.rbacService.checkPermission(
         userId,
-        'influencer:Import',
+        requiredPermission,
         'res:*'
       )
 
       if (!hasPermission) {
         throw new ForbiddenException(
-          'You do not have permission to import influencers. Required permission: influencer:Import'
+          `You do not have permission to import ${entityName}. Required permission: ${requiredPermission}`
         )
       }
 
       // File is required for import jobs
       if (!file) {
-        throw new BadRequestException('File is required for influencer import jobs')
+        throw new BadRequestException(`File is required for ${entityName} import jobs`)
       }
 
       // Validate file type (.csv or .txt only)

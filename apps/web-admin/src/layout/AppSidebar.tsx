@@ -13,7 +13,7 @@ import {
   PieChartIcon,
   TableIcon,
   PlugInIcon,
-  ArrowUpIcon,
+  UploadIcon,
 } from '../icons/index'
 
 type NavItem = {
@@ -62,7 +62,7 @@ const navItems: NavItem[] = [
     permission: 'influencer:Read', // Only users with influencer:Read permission
   },
   {
-    icon: <ArrowUpIcon />,
+    icon: <UploadIcon />,
     name: 'Import Center',
     path: '/import-center',
     permission: 'influencer:Import', // Only users with influencer:Import permission

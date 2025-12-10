@@ -1,6 +1,7 @@
 import { IJobHandler } from '../types'
 import { ExampleHandler } from './example-handler'
 import { CreatorImportHandler } from './creator-import-handler'
+import { ClientImportHandler } from './client-import-handler'
 
 /**
  * Handler registry implementing Strategy pattern
@@ -25,6 +26,7 @@ export class HandlerRegistry {
     // Future handlers are added by importing and registering them
     this.register('example', new ExampleHandler())
     this.register('influencer_import', new CreatorImportHandler())
+    this.register('client_import', new ClientImportHandler())
 
     // ============================================
     // ADD NEW HANDLERS HERE:

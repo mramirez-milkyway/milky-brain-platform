@@ -182,24 +182,39 @@ echo "6️⃣  Creating Lambda function: $LAMBDA_NAME"
 # Database URL for LocalStack Lambda (using host.docker.internal)
 DATABASE_URL="postgresql://admin:admin123@host.docker.internal:5432/admin_panel"
 
-# Try to create the function
-if awslocal lambda create-function \
+# Upload Lambda zip to S3 first (required for packages > 50MB)
+LAMBDA_S3_KEY="lambda-code/job-processor.zip"
+echo "   ℹ️  Uploading Lambda package to S3..."
+awslocal s3 cp lambdas/job-processor/lambda.zip s3://$BUCKET_NAME/$LAMBDA_S3_KEY > /dev/null
+echo "   ✅ Lambda package uploaded to S3"
+
+# Check if function actually exists
+FUNCTION_EXISTS=$(awslocal lambda get-function \
   --function-name $LAMBDA_NAME \
-  --runtime nodejs20.x \
-  --role $ROLE_ARN \
-  --handler index.handler \
-  --timeout 900 \
-  --memory-size 512 \
-  --zip-file fileb://lambdas/job-processor/lambda.zip \
-  --environment "Variables={NODE_ENV=local,DATABASE_URL=$DATABASE_URL,S3_JOBS_BUCKET_NAME=$BUCKET_NAME,SQS_JOBS_QUEUE_URL=$QUEUE_URL,AWS_REGION=$REGION,LOG_LEVEL=debug}" \
-  > /dev/null 2>&1; then
+  --output text \
+  --query 'Configuration.FunctionName' 2>/dev/null || echo "")
+
+if [ -z "$FUNCTION_EXISTS" ]; then
+  # Function doesn't exist, create it
+  echo "   ℹ️  Creating new function..."
+  awslocal lambda create-function \
+    --function-name $LAMBDA_NAME \
+    --runtime nodejs20.x \
+    --role $ROLE_ARN \
+    --handler index.handler \
+    --timeout 900 \
+    --memory-size 512 \
+    --code S3Bucket=$BUCKET_NAME,S3Key=$LAMBDA_S3_KEY \
+    --environment "Variables={NODE_ENV=local,DATABASE_URL=$DATABASE_URL,S3_JOBS_BUCKET_NAME=$BUCKET_NAME,SQS_JOBS_QUEUE_URL=$QUEUE_URL,AWS_REGION=$REGION,LOG_LEVEL=debug}" \
+    > /dev/null
   echo "   ✅ Lambda function created"
 else
-  # Function already exists, update it
+  # Function exists, update it
   echo "   ℹ️  Function exists, updating code..."
   awslocal lambda update-function-code \
     --function-name $LAMBDA_NAME \
-    --zip-file fileb://lambdas/job-processor/lambda.zip \
+    --s3-bucket $BUCKET_NAME \
+    --s3-key $LAMBDA_S3_KEY \
     > /dev/null
 
   # Wait for code update to complete
@@ -244,12 +259,13 @@ echo ""
 echo "7️⃣  Creating event source mapping (SQS → Lambda)"
 
 # Check if mapping already exists
+# Note: AWS CLI returns "None" as text when no mappings exist, not empty string
 EXISTING_MAPPING=$(awslocal lambda list-event-source-mappings \
   --function-name $LAMBDA_NAME \
   --output text \
   --query 'EventSourceMappings[0].UUID' 2>/dev/null || echo "")
 
-if [ -z "$EXISTING_MAPPING" ]; then
+if [ -z "$EXISTING_MAPPING" ] || [ "$EXISTING_MAPPING" = "None" ]; then
   awslocal lambda create-event-source-mapping \
     --function-name $LAMBDA_NAME \
     --event-source-arn $QUEUE_ARN \

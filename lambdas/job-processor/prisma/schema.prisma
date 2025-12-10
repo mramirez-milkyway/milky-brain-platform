@@ -1,0 +1,745 @@
+// Prisma schema for Central Admin Panel V1
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id         Int        @id @default(autoincrement())
+  email      String     @unique
+  name       String
+  status     UserStatus @default(ACTIVE)
+  lastSeenAt DateTime?  @map("last_seen_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  // Relationships
+  userRoles       UserRole[]
+  userPolicies    UserPolicy[]
+  auditEvents     AuditEvent[]
+  exportLogs      ExportLog[]
+  notifications   Notification[]
+  settingsUpdated Setting[]
+  invitation      UserInvitation?
+  jobs            Job[]
+
+  @@index([email])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+  INVITED
+}
+
+// Role model
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  userRoles             UserRole[]
+  rolePolicies          RolePolicy[]
+  exportControlSettings ExportControlSettings[]
+
+  @@index([name])
+  @@map("roles")
+}
+
+// UserRole (many-to-many)
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId], name: "unique_user_role")
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// Policy model (IAM-like policies)
+model Policy {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  statements  Json // [{Effect, Actions[], Resources[], Conditions?}]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  rolePolicies RolePolicy[]
+  userPolicies UserPolicy[]
+
+  @@index([name])
+  @@map("policies")
+}
+
+// RolePolicy (many-to-many)
+model RolePolicy {
+  id        Int      @id @default(autoincrement())
+  roleId    Int      @map("role_id")
+  policyId  Int      @map("policy_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, policyId], name: "unique_role_policy")
+  @@index([roleId])
+  @@index([policyId])
+  @@map("role_policies")
+}
+
+// UserPolicy (many-to-many, for overrides)
+model UserPolicy {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  policyId  Int      @map("policy_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, policyId], name: "unique_user_policy")
+  @@index([userId])
+  @@index([policyId])
+  @@map("user_policies")
+}
+
+// Workspace model (single-tenant in V1)
+model Workspace {
+  id        Int      @id @default(autoincrement())
+  name      String
+  logoUrl   String?  @map("logo_url")
+  timezone  String   @default("UTC")
+  currency  String   @default("USD")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("workspaces")
+}
+
+// Setting model (versioned configuration)
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       Json
+  version     Int      @default(1)
+  updatedBy   Int?     @map("updated_by")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updater User? @relation(fields: [updatedBy], references: [id])
+
+  @@index([key])
+  @@map("settings")
+}
+
+// Integration model
+model Integration {
+  id            Int               @id @default(autoincrement())
+  provider      String            @unique
+  status        IntegrationStatus @default(ACTIVE)
+  lastSuccessAt DateTime?         @map("last_success_at")
+  errorRate24h  Float             @default(0) @map("error_rate_24h")
+  quotaUsed     Int               @default(0) @map("quota_used")
+  config        Json // Encrypted secrets, config
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@index([provider])
+  @@map("integrations")
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+// AuditEvent model (tamper-evident)
+model AuditEvent {
+  id          Int      @id @default(autoincrement())
+  actorId     Int      @map("actor_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  hash        String // SHA-256 hash
+  prevHash    String?  @map("prev_hash")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([hash])
+  @@index([prevHash])
+  @@map("audit_events")
+}
+
+// Job model (for async job processing)
+model Job {
+  id          Int       @id @default(autoincrement())
+  taskId      String    @unique @map("task_id")
+  jobType     String    @map("job_type")
+  status      JobStatus @default(PENDING)
+  queue       String    @default("default")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  errorReason String?   @map("error_reason")
+
+  // File handling
+  fileUrl  String? @map("file_url")
+  fileKey  String? @map("file_key")
+  fileName String? @map("file_name")
+
+  // Enhanced metadata
+  payload Json?
+  result  Json?
+  meta    Json?
+
+  // User tracking
+  userId Int? @map("user_id")
+
+  // Timestamps
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  user User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  logs JobLog[]
+
+  @@index([taskId])
+  @@index([jobType])
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("jobs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+// JobLog model (detailed execution logs)
+model JobLog {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  level     LogLevel @default(INFO)
+  message   String   @db.Text
+  rowNumber Int?     @map("row_number")
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([level])
+  @@index([createdAt])
+  @@map("job_logs")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+}
+
+// ExportLog model - tracks export quota consumption
+model ExportLog {
+  id                 Int               @id @default(autoincrement())
+  userId             Int               @map("user_id")
+  exportType         String            @map("export_type") // 'influencer_list', 'report', etc.
+  rowCount           Int               @map("row_count")
+  objectRef          String?           @map("object_ref") // Legacy field, optional
+  destination        ExportDestination @default(DOWNLOAD)
+  shareLinkToken     String?           @unique @map("share_link_token")
+  shareLinkExpiresAt DateTime?         @map("share_link_expires_at")
+  watermark          String?
+  exportedAt         DateTime          @default(now()) @map("exported_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, exportedAt])
+  @@index([exportType])
+  @@index([userId])
+  @@map("export_logs")
+}
+
+enum ExportDestination {
+  DOWNLOAD
+  SHARE_LINK
+}
+
+// ExportControlSettings model - role-based export limits
+model ExportControlSettings {
+  id              Int      @id @default(autoincrement())
+  roleId          Int      @map("role_id")
+  exportType      String   @map("export_type") // 'all', 'influencer_list', 'report', etc.
+  rowLimit        Int      @map("row_limit") // -1 for unlimited
+  enableWatermark Boolean  @default(true) @map("enable_watermark")
+  dailyLimit      Int?     @map("daily_limit") // Max exports per day (null = no limit)
+  monthlyLimit    Int?     @map("monthly_limit") // Max exports per month (null = no limit)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, exportType], name: "unique_role_export_type")
+  @@index([roleId])
+  @@map("export_control_settings")
+}
+
+// Influencer model - DEPRECATED - use Creator model instead
+// Keeping for backwards compatibility during migration
+model Influencer {
+  id         Int      @id @default(autoincrement())
+  name       String
+  platform   String
+  followers  Int
+  engagement Float
+  category   String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("influencers")
+}
+
+// Creator model - represents influencers/content creators
+model Creator {
+  id          Int     @id @default(autoincrement()) @map("id")
+  fullName    String  @map("full_name")
+  gender      String?
+  country     String?
+  city        String?
+  email       String?
+  phoneNumber String? @map("phone_number")
+
+  // Professional info
+  characteristics String? @db.Text
+  pastClients     String? @map("past_clients") @db.Text
+  pastCampaigns   String? @map("past_campaigns") @db.Text
+  comments        String? @db.Text
+
+  // Status and metadata
+  isActive        Boolean @default(true) @map("is_active")
+  languages       String? @db.Text // JSON array
+  categories      String? @db.Text // JSON array
+  internalTags    String? @map("internal_tags") @db.Text // JSON array
+  isBlacklisted   Boolean @default(false) @map("is_blacklisted")
+  blacklistReason String? @map("blacklist_reason") @db.Text
+
+  // Agency/Management
+  agencyName  String? @map("agency_name")
+  managerName String? @map("manager_name")
+  billingInfo String? @map("billing_info") @db.Text
+
+  // Campaign tracking
+  lastBrand             String?   @map("last_brand")
+  campaignsActive       Int?      @default(0) @map("campaigns_active")
+  lastCampaignCompleted DateTime? @map("last_campaign_completed")
+  lastFee               Decimal?  @map("last_fee") @db.Decimal(10, 2)
+  lastFeeDate           DateTime? @map("last_fee_date")
+  lastFeeContentType    String?   @map("last_fee_content_type")
+  lastCpv               Float?    @map("last_cpv")
+  lastCpm               Float?    @map("last_cpm")
+  last3CampaignsPerf    Json?     @map("last_3_campaigns_perf")
+  rateSource            String?   @map("rate_source")
+  internalRating        Float?    @map("internal_rating")
+
+  // Timestamps
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relationships
+  creatorSocials   CreatorSocial[]
+  campaignCreators CampaignCreator[]
+
+  @@index([fullName])
+  @@index([email])
+  @@index([isActive])
+  @@index([isBlacklisted])
+  @@map("creators")
+}
+
+// CreatorSocial model - social media accounts for creators
+model CreatorSocial {
+  id          Int     @id @default(autoincrement())
+  creatorId   Int     @map("creator_id")
+  socialMedia String  @map("social_media") // 'instagram', 'tiktok', 'youtube', etc.
+  handle      String
+  followers   Int?
+  tier        String?
+  socialLink  String? @map("social_link")
+
+  // Timestamps
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relationships
+  creator              Creator                        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  audienceAges         CreatorSocialAudienceAge[]
+  audienceCountries    CreatorSocialAudienceCountry[]
+  audienceCities       CreatorSocialAudienceCity[]
+  socialStatsIgPosts   SocialStatsIgPost[]
+  socialStatsIgStories SocialStatsIgStory[]
+  socialStatsIgReels   SocialStatsIgReel[]
+  socialStatsTtVideos  SocialStatsTtVideo[]
+  campaignCreators     CampaignCreator[]
+
+  @@unique([handle, socialMedia], name: "unique_handle_social_media")
+  @@index([creatorId])
+  @@index([socialMedia])
+  @@index([handle])
+  @@map("creator_socials")
+}
+
+// Audience demographics tables
+model CreatorSocialAudienceAge {
+  id                   Int      @id @default(autoincrement())
+  creatorSocialId      Int      @map("creator_social_id")
+  engagementRate       Decimal? @map("engagement_rate") @db.Decimal(5, 2)
+  pctWomen             Decimal? @map("pct_women") @db.Decimal(5, 2)
+  pctMen               Decimal? @map("pct_men") @db.Decimal(5, 2)
+  pctAge1824           Decimal? @map("pct_age_18_24") @db.Decimal(5, 2)
+  pctAge2534           Decimal? @map("pct_age_25_34") @db.Decimal(5, 2)
+  pctAge3544           Decimal? @map("pct_age_35_44") @db.Decimal(5, 2)
+  pctAge4554           Decimal? @map("pct_age_45_54") @db.Decimal(5, 2)
+  pctAge5564           Decimal? @map("pct_age_55_64") @db.Decimal(5, 2)
+  pctAge65Plus         Decimal? @map("pct_age_65_plus") @db.Decimal(5, 2)
+  followersCredibility Decimal? @map("followers_credibility") @db.Decimal(5, 2)
+  dataSource           String?  @map("data_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("creator_social_audience_ages")
+}
+
+model CreatorSocialAudienceCountry {
+  id              Int       @id @default(autoincrement())
+  creatorSocialId Int       @map("creator_social_id")
+  rank            Int?
+  country         String?
+  pct             Decimal?  @db.Decimal(5, 2)
+  city            String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("creator_social_audience_countries")
+}
+
+model CreatorSocialAudienceCity {
+  id              Int       @id @default(autoincrement())
+  creatorSocialId Int       @map("creator_social_id")
+  rank            Int?
+  pct             Decimal?  @db.Decimal(5, 2)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("creator_social_audience_cities")
+}
+
+// Social stats tables for different platforms
+model SocialStatsIgPost {
+  id              Int     @id @default(autoincrement())
+  creatorSocialId Int     @map("creator_social_id")
+  avgLikes        Int?    @map("avg_likes")
+  avgComments     Int?    @map("avg_comments")
+  avgShares       Int?    @map("avg_shares")
+  avgImpressions  Int?    @map("avg_impressions")
+  avgSaves        Int?    @map("avg_saves")
+  impressions     Int?
+  estReach        Int?    @map("est_reach")
+  cpe             Float?
+  cpc             Float?
+  cpm             Float?
+  dataSource      String? @map("data_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_ig_posts")
+}
+
+model SocialStatsIgStory {
+  id              Int     @id @default(autoincrement())
+  creatorSocialId Int     @map("creator_social_id")
+  avgViews        Int?    @map("avg_views")
+  linkClicks      Int?    @map("link_clicks")
+  engRate         Float?  @map("eng_rate")
+  impressions     Int?
+  growthSource    String? @map("growth_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_ig_stories")
+}
+
+model SocialStatsIgReel {
+  id              Int    @id @default(autoincrement())
+  creatorSocialId Int    @map("creator_social_id")
+  avgViews        Int?   @map("avg_views")
+  avgPlays        Int?   @map("avg_plays")
+  avgLikes        Int?   @map("avg_likes")
+  engagements     Int?
+  engRate         Float? @map("eng_rate")
+  estReach        Int?   @map("est_reach")
+  cpm             Float?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_ig_reels")
+}
+
+model SocialStatsTtVideo {
+  id              Int    @id @default(autoincrement())
+  creatorSocialId Int    @map("creator_social_id")
+  avgLikes        Int?   @map("avg_likes")
+  avgComments     Int?   @map("avg_comments")
+  avgShares       Int?   @map("avg_shares")
+  avgSaves        Int?   @map("avg_saves")
+  estViews        Int?   @map("est_views")
+  avgViewRate     Float? @map("avg_view_rate")
+  estCpv          Float? @map("est_cpv")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+
+  @@index([creatorSocialId])
+  @@map("social_stats_tt_videos")
+}
+
+// Campaign model
+model Campaign {
+  id           Int       @id @default(autoincrement())
+  customerId   Int       @map("customer_id")
+  name         String
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  budget       Decimal?  @db.Decimal(10, 2)
+  currencyCode String?   @default("USD") @map("currency_code")
+  status       String?
+  notes        String?   @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  campaignCreators CampaignCreator[]
+  posts            Post[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("campaigns")
+}
+
+// Customer model
+model Customer {
+  id           Int     @id @default(autoincrement())
+  name         String
+  industry     String?
+  country      String?
+  contactName  String? @map("contact_name")
+  contactEmail String? @map("contact_email")
+  contactPhone String? @map("contact_phone")
+  notes        String? @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  campaigns Campaign[]
+
+  @@map("customers")
+}
+
+// CampaignCreator - junction table for many-to-many
+model CampaignCreator {
+  id               Int      @id @default(autoincrement())
+  campaignId       Int      @map("campaign_id")
+  creatorSocialId  Int      @map("creator_social_id")
+  status           String?
+  contentCost      Decimal? @map("content_cost") @db.Decimal(10, 2)
+  contentMediaCost Decimal? @map("content_media_cost") @db.Decimal(10, 2)
+  eventCost        Decimal? @map("event_cost") @db.Decimal(10, 2)
+  currencyCode     String?  @default("USD") @map("currency_code")
+  notes            String?  @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  campaign      Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorSocial CreatorSocial @relation(fields: [creatorSocialId], references: [id], onDelete: Cascade)
+  creator       Creator?      @relation(fields: [creatorId], references: [id])
+  creatorId     Int?
+
+  @@index([campaignId])
+  @@index([creatorSocialId])
+  @@map("campaign_creators")
+}
+
+// Post model
+model Post {
+  id                Int       @id @default(autoincrement())
+  campaignCreatorId Int       @map("campaign_creator_id")
+  postUrl           String?   @map("post_url")
+  contentType       String?   @map("content_type")
+  publishedAt       DateTime? @map("published_at")
+  views             Int?
+  reach             Int?
+  likes             Int?
+  comments          Int?
+  saves             Int?
+  shares            Int?
+  clicksLink        Int?      @map("clicks_link")
+  cost              Decimal?  @db.Decimal(10, 2)
+  currencyCode      String?   @default("USD") @map("currency_code")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  campaign Campaign @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
+
+  @@index([campaignCreatorId])
+  @@map("posts")
+}
+
+// Notification model
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  category  String
+  payload   Json
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([category])
+  @@map("notifications")
+}
+
+// FeatureFlag model
+model FeatureFlag {
+  id               Int      @id @default(autoincrement())
+  key              String   @unique
+  description      String?
+  enabledByDefault Boolean  @default(false) @map("enabled_by_default")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  overrides FeatureFlagOverride[]
+
+  @@index([key])
+  @@map("feature_flags")
+}
+
+// FeatureFlagOverride model
+model FeatureFlagOverride {
+  id            Int         @id @default(autoincrement())
+  featureFlagId Int         @map("feature_flag_id")
+  subjectType   SubjectType @map("subject_type")
+  subjectId     Int         @map("subject_id")
+  value         Boolean
+  constraints   Json?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  @@unique([featureFlagId, subjectType, subjectId], name: "unique_feature_flag_override")
+  @@index([featureFlagId])
+  @@map("feature_flag_overrides")
+}
+
+enum SubjectType {
+  ROLE
+  USER
+}
+
+// UserInvitation model
+model UserInvitation {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("user_invitations")
+}

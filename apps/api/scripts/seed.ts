@@ -48,6 +48,7 @@ async function main() {
             'influencer:Read',
             'influencer:Export',
             'influencer:Import',
+            'client:Import',
             'job:Create',
             'job:Read',
           ],

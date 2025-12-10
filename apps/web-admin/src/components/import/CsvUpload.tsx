@@ -4,8 +4,11 @@ import { useState, useRef, ChangeEvent } from 'react'
 import Button from '@/components/ui/button/Button'
 import { apiClient } from '@/lib/api-client'
 
+export type ImportType = 'influencer_import' | 'client_import'
+
 interface CsvUploadProps {
   onSuccess: () => void
+  importType: ImportType
 }
 
 interface ColumnMapping {
@@ -13,7 +16,13 @@ interface ColumnMapping {
   dbField: string
 }
 
-const DB_FIELDS = [
+interface FieldDefinition {
+  value: string
+  label: string
+  required?: boolean
+}
+
+const INFLUENCER_DB_FIELDS: FieldDefinition[] = [
   { value: '', label: 'Skip this column' },
   { value: 'creatorId', label: 'Creator ID *', required: true },
   { value: 'fullName', label: 'Full Name *', required: true },
@@ -36,7 +45,46 @@ const DB_FIELDS = [
   { value: 'comments', label: 'Comments' },
 ]
 
-export default function CsvUpload({ onSuccess }: CsvUploadProps) {
+const CLIENT_DB_FIELDS: FieldDefinition[] = [
+  { value: '', label: 'Skip this column' },
+  { value: 'name', label: 'Company Name *', required: true },
+  { value: 'industry', label: 'Industry' },
+  { value: 'country', label: 'Country' },
+  { value: 'contactName', label: 'Contact Name' },
+  { value: 'contactEmail', label: 'Contact Email' },
+  { value: 'contactPhone', label: 'Contact Phone' },
+  { value: 'notes', label: 'Notes' },
+]
+
+const IMPORT_CONFIG = {
+  influencer_import: {
+    title: 'Import Creators from CSV',
+    fields: INFLUENCER_DB_FIELDS,
+    requiredFields: ['creatorId', 'fullName', 'handle', 'socialMedia'],
+    requiredColumnsHelp: [
+      'creator_id - Temporary ID to group rows by creator',
+      "full_name - Creator's full name",
+      'handle - Social media handle',
+      'social_media - Platform (instagram, tiktok, youtube, etc.)',
+    ],
+  },
+  client_import: {
+    title: 'Import Clients from CSV',
+    fields: CLIENT_DB_FIELDS,
+    requiredFields: ['name'],
+    requiredColumnsHelp: [
+      'name - Company/client name (required)',
+      'industry - Business industry',
+      'country - Country',
+      'contact_name - Primary contact name',
+      'contact_email - Contact email',
+      'contact_phone - Contact phone',
+      'notes - Additional notes',
+    ],
+  },
+}
+
+export default function CsvUpload({ onSuccess, importType }: CsvUploadProps) {
   const [file, setFile] = useState<File | null>(null)
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [csvData, setCsvData] = useState<string[][]>([])
@@ -46,6 +94,9 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const config = IMPORT_CONFIG[importType]
+  const dbFields = config.fields
 
   const parseCSV = (text: string): string[][] => {
     const lines = text.split('\n').filter((line) => line.trim())
@@ -125,7 +176,40 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
 
       const camelCaseHeader = toCamelCase(normalizedHeader)
 
-      const matchingField = DB_FIELDS.find(
+      // Additional mappings for common CSV header variations
+      const headerAliases: Record<string, string> = {
+        // Client field aliases
+        company: 'name',
+        company_name: 'name',
+        client: 'name',
+        client_name: 'name',
+        organization: 'name',
+        contact: 'contactName',
+        contact_person: 'contactName',
+        email: importType === 'client_import' ? 'contactEmail' : 'email',
+        phone: importType === 'client_import' ? 'contactPhone' : 'phoneNumber',
+        telephone: importType === 'client_import' ? 'contactPhone' : 'phoneNumber',
+        // Influencer field aliases
+        creator_id: 'creatorId',
+        full_name: 'fullName',
+        social_media: 'socialMedia',
+        phone_number: 'phoneNumber',
+        social_link: 'socialLink',
+        agency_name: 'agencyName',
+        manager_name: 'managerName',
+        past_clients: 'pastClients',
+      }
+
+      // Check alias mapping first
+      const aliasMatch = headerAliases[normalizedHeader]
+      if (aliasMatch && dbFields.some((f) => f.value === aliasMatch)) {
+        return {
+          csvColumn: header,
+          dbField: aliasMatch,
+        }
+      }
+
+      const matchingField = dbFields.find(
         (field) =>
           field.value &&
           (field.value === camelCaseHeader ||
@@ -148,12 +232,13 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
   }
 
   const validateMappings = (): boolean => {
-    const requiredFields = ['creatorId', 'fullName', 'handle', 'socialMedia']
+    const requiredFields = config.requiredFields
     const mappedFields = columnMappings.map((m) => m.dbField).filter((f) => f)
 
     for (const required of requiredFields) {
       if (!mappedFields.includes(required)) {
-        setError(`Required field missing: ${required}`)
+        const fieldDef = dbFields.find((f) => f.value === required)
+        setError(`Required field missing: ${fieldDef?.label || required}`)
         return false
       }
     }
@@ -180,7 +265,7 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
       // Create FormData for file upload
       const formData = new FormData()
       formData.append('file', file!)
-      formData.append('jobType', 'influencer_import')
+      formData.append('jobType', importType)
       formData.append('payload', JSON.stringify({ columnMapping }))
 
       const response = await apiClient.post('/jobs', formData, {
@@ -228,9 +313,7 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white shadow dark:border-gray-700 dark:bg-gray-800">
       <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Import Creators from CSV
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{config.title}</h3>
       </div>
 
       <div className="p-6">
@@ -283,12 +366,13 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-              <h4 className="mb-2 font-medium text-gray-900 dark:text-white">Required Columns:</h4>
+              <h4 className="mb-2 font-medium text-gray-900 dark:text-white">
+                {importType === 'client_import' ? 'Supported Columns:' : 'Required Columns:'}
+              </h4>
               <ul className="list-inside list-disc space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                <li>creator_id - Temporary ID to group rows by creator</li>
-                <li>full_name - Creator's full name</li>
-                <li>handle - Social media handle</li>
-                <li>social_media - Platform (instagram, tiktok, youtube, etc.)</li>
+                {config.requiredColumnsHelp.map((text, idx) => (
+                  <li key={idx}>{text}</li>
+                ))}
               </ul>
             </div>
           </div>
@@ -338,7 +422,7 @@ export default function CsvUpload({ onSuccess }: CsvUploadProps) {
                           onChange={(e) => handleMappingChange(index, e.target.value)}
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         >
-                          {DB_FIELDS.map((field) => (
+                          {dbFields.map((field) => (
                             <option key={field.value} value={field.value}>
                               {field.label}
                             </option>

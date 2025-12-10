@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
+import { ImportType } from './CsvUpload'
 
 interface JobHistoryPanelProps {
   refreshTrigger: number
+  importType: ImportType
 }
 
 interface Job {
@@ -21,22 +23,32 @@ interface Job {
     totalRows?: number
     successCount?: number
     errorCount?: number
+    // Influencer import fields
     createdCreators?: number
     createdSocialAccounts?: number
     updatedSocialAccounts?: number
+    // Client import fields
+    createdClients?: number
+    updatedClients?: number
+    duplicateCount?: number
   } | null
 }
 
-export default function JobHistoryPanel({ refreshTrigger }: JobHistoryPanelProps) {
+const JOB_TYPE_LABELS: Record<ImportType, string> = {
+  influencer_import: 'Influencer Import',
+  client_import: 'Client Import',
+}
+
+export default function JobHistoryPanel({ refreshTrigger, importType }: JobHistoryPanelProps) {
   const router = useRouter()
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['import-jobs', refreshTrigger],
+    queryKey: ['import-jobs', refreshTrigger, importType],
     queryFn: async () => {
       const response = await apiClient.get('/jobs', {
         params: {
-          jobType: 'influencer_import',
+          jobType: importType,
           pageSize: 50,
         },
       })
@@ -126,7 +138,9 @@ export default function JobHistoryPanel({ refreshTrigger }: JobHistoryPanelProps
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import Job History</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {JOB_TYPE_LABELS[importType]} History
+        </h3>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <input

@@ -1,0 +1,14 @@
+name,industry,country,contact_name,contact_email,contact_phone,notes
+Valid Corp,Technology,USA,John Smith,john@validcorp.com,+1-555-0100,This row should import successfully
+,Finance,UK,Jane Doe,jane@missing-name.com,+44-20-1234,Missing name - should fail
+Empty Name Only,,,,,,"Row with only name, minimal data - should work"
+Bad Email Corp,Healthcare,Germany,Hans Mueller,not-an-email,+49-30-1234,Invalid email format - should fail
+Another Bad Email,Retail,France,Pierre Dupont,missing@dot,+33-1-2345,Another invalid email - should fail
+Good Company Inc,Manufacturing,Japan,Taro Yamada,taro@goodcompany.jp,+81-3-1234,Valid row
+   ,Education,Brazil,Maria Silva,maria@edu.br,+55-11-1234,Name is just whitespace - should fail
+Spaces In Name,  Media  ,  Canada  ,  Bob Wilson  ,bob@spaces.com,  +1-416-5678  ,Has extra spaces but should work
+No Email Corp,Logistics,Mexico,Carlos Garcia,,+52-55-1234,No email provided - should work (optional)
+Special Chars Ltd,Food & Beverage,Spain,Jose Garcia,jose@special.es,+34-91-1234,"Notes with, commas and ""quotes"""
+,,,,,,,Completely empty row - should be skipped
+Duplicate Test,Tech,USA,Test User,test@dup.com,+1-555-9999,First occurrence
+Duplicate Test,Finance,UK,Another User,another@dup.com,+44-20-9999,Second occurrence - should be skipped or update based on mode
