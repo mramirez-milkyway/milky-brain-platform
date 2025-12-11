@@ -167,13 +167,16 @@ jobs:
         run: |
           BUCKET_NAME="${{ github.event.inputs.environment }}-milky-way-lambda-deployments"
           S3_KEY="job-processor/lambda-${{ github.sha }}.zip"
+          # Also upload to the fixed key that Terraform expects (for initial creation)
+          S3_KEY_FIXED="job-processor/lambda.zip"
 
-          # Create bucket if it doesn't exist
-          aws s3 mb s3://$BUCKET_NAME --region ${{ env.AWS_REGION }} 2>/dev/null || true
-
-          # Upload to S3
+          # Upload to S3 (bucket is created by Terraform)
           echo "Uploading lambda.zip to s3://$BUCKET_NAME/$S3_KEY"
           aws s3 cp lambda.zip s3://$BUCKET_NAME/$S3_KEY --region ${{ env.AWS_REGION }}
+
+          # Also upload to fixed key for Terraform compatibility
+          echo "Uploading lambda.zip to s3://$BUCKET_NAME/$S3_KEY_FIXED"
+          aws s3 cp lambda.zip s3://$BUCKET_NAME/$S3_KEY_FIXED --region ${{ env.AWS_REGION }}
 
           echo "s3_bucket=$BUCKET_NAME" >> $GITHUB_ENV
           echo "s3_key=$S3_KEY" >> $GITHUB_ENV

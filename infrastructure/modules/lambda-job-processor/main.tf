@@ -142,7 +142,25 @@ resource "aws_security_group" "lambda" {
   }
 }
 
+# Placeholder Lambda package for initial creation
+# CI/CD will replace this with the real code via UpdateFunctionCode
+data "archive_file" "placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/placeholder.zip"
+
+  source {
+    content  = <<-EOF
+      exports.handler = async (event) => {
+        console.log('Placeholder Lambda - deploy real code via CI/CD');
+        return { statusCode: 200, body: 'Placeholder - awaiting deployment' };
+      };
+    EOF
+    filename = "index.js"
+  }
+}
+
 # Lambda Function
+# Terraform creates with placeholder code, CI/CD deploys real code
 resource "aws_lambda_function" "job_processor" {
   function_name = "${var.environment}-${var.project_name}-job-processor"
   description   = "Processes async jobs from SQS queue"
@@ -152,8 +170,9 @@ resource "aws_lambda_function" "job_processor" {
   timeout       = var.timeout
   memory_size   = var.memory_size
 
-  filename         = var.lambda_zip_path
-  source_code_hash = fileexists(var.lambda_zip_path) ? filebase64sha256(var.lambda_zip_path) : null
+  # Use placeholder for initial creation - CI/CD handles real deployments
+  filename         = data.archive_file.placeholder.output_path
+  source_code_hash = data.archive_file.placeholder.output_base64sha256
 
   vpc_config {
     subnet_ids         = var.private_subnet_ids
@@ -179,6 +198,17 @@ resource "aws_lambda_function" "job_processor" {
   tags = {
     Name        = "${var.environment}-${var.project_name}-job-processor"
     Environment = var.environment
+  }
+
+  # Ignore code changes - CI/CD handles Lambda deployments via UpdateFunctionCode
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+      s3_bucket,
+      s3_key,
+      s3_object_version,
+    ]
   }
 
   depends_on = [

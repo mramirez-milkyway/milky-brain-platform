@@ -23,3 +23,15 @@ variable "secrets_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "lambda_deployment_bucket_arn" {
+  description = "ARN of S3 bucket for Lambda deployment packages"
+  type        = string
+  default     = ""
+}
+
+variable "lambda_function_arns" {
+  description = "List of Lambda function ARNs that GitHub Actions can deploy to"
+  type        = list(string)
+  default     = []
+}

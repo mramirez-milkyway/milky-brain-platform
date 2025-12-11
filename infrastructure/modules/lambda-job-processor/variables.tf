@@ -67,10 +67,10 @@ variable "memory_size" {
   default     = 512
 }
 
-variable "lambda_zip_path" {
-  description = "Path to Lambda deployment package"
+variable "lambda_deployment_bucket" {
+  description = "S3 bucket name where CI/CD uploads Lambda packages (for UpdateFunctionCode)"
   type        = string
-  default     = "../../../lambdas/job-processor/lambda.zip"
+  default     = ""
 }
 
 variable "log_retention_days" {

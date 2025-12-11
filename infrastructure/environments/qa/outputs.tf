@@ -111,6 +111,11 @@ output "github_oidc_provider_arn" {
 }
 
 # Job Processing Outputs
+output "s3_lambda_deployments_bucket_name" {
+  description = "S3 bucket name for Lambda deployment packages"
+  value       = module.s3_lambda_deployments.bucket_name
+}
+
 output "s3_jobs_bucket_name" {
   description = "S3 bucket name for job files"
   value       = module.s3_jobs.bucket_name

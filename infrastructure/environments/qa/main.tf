@@ -21,6 +21,10 @@ module "github_oidc" {
   github_org   = var.github_org
   github_repo  = var.github_repo
   secrets_arns = []
+
+  # Lambda deployment permissions - use wildcard pattern to avoid circular dependency
+  lambda_deployment_bucket_arn = "arn:aws:s3:::${var.environment}-${var.project_name}-lambda-deployments"
+  lambda_function_arns         = ["arn:aws:lambda:${var.aws_region}:*:function:${var.environment}-${var.project_name}-job-processor"]
 }
 
 # Secrets Module
@@ -233,6 +237,15 @@ module "resend_dns" {
 # Job Processing Infrastructure
 # ============================================
 
+# S3 Lambda Deployments Module - For CI/CD Lambda deployments
+module "s3_lambda_deployments" {
+  source = "../../modules/s3-lambda-deployments"
+
+  environment    = var.environment
+  project_name   = var.project_name
+  retention_days = 30
+}
+
 # S3 Jobs Module - Create first
 module "s3_jobs" {
   source = "../../modules/s3-jobs"
@@ -265,6 +278,7 @@ module "sqs_jobs" {
 }
 
 # Lambda Job Processor Module - Create last with real ARNs
+# Note: Terraform creates Lambda with placeholder code, CI/CD deploys real code via UpdateFunctionCode
 module "lambda_job_processor" {
   source = "../../modules/lambda-job-processor"
 
@@ -278,6 +292,9 @@ module "lambda_job_processor" {
   s3_bucket_name = module.s3_jobs.bucket_name
   sqs_queue_arn  = module.sqs_jobs.queue_arn
   sqs_queue_url  = module.sqs_jobs.queue_url
+
+  # S3 bucket where CI/CD uploads Lambda packages
+  lambda_deployment_bucket = module.s3_lambda_deployments.bucket_name
 
   database_url = "postgresql://${var.db_master_username}:${var.db_master_password}@${module.rds.db_instance_address}:${module.rds.db_instance_port}/${var.database_name}"
   aws_region   = var.aws_region
@@ -294,7 +311,7 @@ module "lambda_job_processor" {
 
   create_event_source_mapping = true
 
-  depends_on = [module.rds, module.s3_jobs, module.sqs_jobs]
+  depends_on = [module.rds, module.s3_jobs, module.sqs_jobs, module.s3_lambda_deployments]
 }
 
 # Update RDS security group to allow Lambda access

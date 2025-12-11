@@ -100,6 +100,39 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     ]
     resources = ["*"]
   }
+
+  # S3 permissions for Lambda deployment bucket
+  dynamic "statement" {
+    for_each = var.lambda_deployment_bucket_arn != "" ? [1] : []
+    content {
+      sid    = "S3LambdaDeploymentAccess"
+      effect = "Allow"
+      actions = [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ]
+      resources = [
+        var.lambda_deployment_bucket_arn,
+        "${var.lambda_deployment_bucket_arn}/*"
+      ]
+    }
+  }
+
+  # Lambda deployment permissions
+  dynamic "statement" {
+    for_each = length(var.lambda_function_arns) > 0 ? [1] : []
+    content {
+      sid    = "LambdaDeploymentAccess"
+      effect = "Allow"
+      actions = [
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration"
+      ]
+      resources = var.lambda_function_arns
+    }
+  }
 }
 
 # Attach the permissions policy to the role
