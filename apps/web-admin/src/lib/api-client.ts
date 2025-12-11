@@ -6,6 +6,7 @@ export const apiClient = axios.create({
 })
 
 let isRefreshing = false
+let isRedirecting = false
 let failedQueue: Array<{
   resolve: (value?: unknown) => void
   reject: (reason?: unknown) => void
@@ -54,6 +55,16 @@ apiClient.interceptors.request.use(
 )
 
 /**
+ * Redirect to login page (prevents multiple redirects)
+ */
+function redirectToLogin() {
+  if (typeof window !== 'undefined' && !isRedirecting) {
+    isRedirecting = true
+    window.location.href = '/login?error=session_expired'
+  }
+}
+
+/**
  * Response interceptor: Handle 401 with token refresh and CSRF errors
  */
 apiClient.interceptors.response.use(
@@ -61,8 +72,19 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
+    // If already redirecting, reject immediately without further processing
+    if (isRedirecting) {
+      return Promise.reject(error)
+    }
+
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Skip refresh attempt for the refresh endpoint itself
+      if (originalRequest.url?.includes('/auth/refresh')) {
+        redirectToLogin()
+        return Promise.reject(error)
+      }
+
       if (isRefreshing) {
         // Queue this request while refresh is in progress
         return new Promise((resolve, reject) => {
@@ -93,10 +115,7 @@ apiClient.interceptors.response.use(
         // Refresh failed, clear queue and redirect to login
         processQueue(refreshError as Error)
         isRefreshing = false
-
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login?error=session_expired'
-        }
+        redirectToLogin()
 
         return Promise.reject(refreshError)
       }

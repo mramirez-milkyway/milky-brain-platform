@@ -42,6 +42,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     data: authData,
     isLoading,
     error,
+    isError,
   } = useQuery<AuthData>({
     queryKey: ['auth-data'],
     queryFn: async () => {
@@ -99,10 +100,13 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }, [authData?.user, startProactiveRefresh, stopProactiveRefresh])
 
   // If authentication failed, show redirecting message while redirect happens
-  if (error) {
+  // The api-client interceptor handles the actual redirect to /login
+  if (isError || error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-lg text-gray-700 dark:text-gray-300">Redirecting to login...</div>
+        <div className="text-lg text-gray-700 dark:text-gray-300">
+          Session expired. Redirecting to login...
+        </div>
       </div>
     )
   }
