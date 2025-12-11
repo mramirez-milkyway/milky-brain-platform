@@ -40,6 +40,13 @@ export class ClientImportHandler extends BaseJobHandler {
       throw new Error('Invalid payload: expected object with columnMapping')
     }
 
+    // Test trigger for unhandled exception (dev only)
+    if ((payload as Record<string, unknown>)._testUnhandledException === true) {
+      throw new Error(
+        'Test unhandled exception in ClientImportHandler - triggered via _testUnhandledException flag'
+      )
+    }
+
     const { columnMapping, duplicateHandling = 'skip' } = payload as {
       columnMapping?: Record<string, string>
       duplicateHandling?: 'skip' | 'update'
@@ -90,7 +97,12 @@ export class ClientImportHandler extends BaseJobHandler {
       // Skip completely empty rows
       if (this.isEmptyRow(row)) {
         skippedCount++
-        await this.logWarning(context, `Row ${rowNumber}: Empty row - skipped`, undefined, rowNumber)
+        await this.logWarning(
+          context,
+          `Row ${rowNumber}: Empty row - skipped`,
+          undefined,
+          rowNumber
+        )
         continue
       }
 

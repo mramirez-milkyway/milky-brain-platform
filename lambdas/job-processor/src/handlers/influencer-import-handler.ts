@@ -24,11 +24,18 @@ interface InfluencerData {
  */
 export class InfluencerImportHandler extends BaseJobHandler {
   async execute(context: JobContext): Promise<unknown> {
-    const { taskId, payload, fileBuffer, fileName } = context
+    const { payload, fileBuffer, fileName } = context
 
     // Validate payload
     if (!payload || typeof payload !== 'object') {
       throw new Error('Invalid payload: expected object with columnMapping')
+    }
+
+    // Test trigger for unhandled exception (dev only)
+    if ((payload as Record<string, unknown>)._testUnhandledException === true) {
+      throw new Error(
+        'Test unhandled exception in InfluencerImportHandler - triggered via _testUnhandledException flag'
+      )
     }
 
     const { columnMapping, duplicateHandling = 'skip' } = payload as {

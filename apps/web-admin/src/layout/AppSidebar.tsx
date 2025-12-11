@@ -14,6 +14,7 @@ import {
   TableIcon,
   PlugInIcon,
   UploadIcon,
+  AlertIcon,
 } from '../icons/index'
 
 type NavItem = {
@@ -77,6 +78,12 @@ const navItems: NavItem[] = [
 
 // Additional navigation items
 const additionalItems: NavItem[] = [
+  {
+    icon: <AlertIcon />,
+    name: 'System Health',
+    path: '/system-health',
+    permission: 'systemHealth:Read', // Only Admin can access system health logs
+  },
   {
     icon: <PageIcon />,
     name: 'Settings',

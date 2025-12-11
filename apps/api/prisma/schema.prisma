@@ -743,3 +743,17 @@ model UserInvitation {
   @@index([expiresAt])
   @@map("user_invitations")
 }
+
+// SystemLog model - captures unhandled exceptions from API and Lambda
+model SystemLog {
+  id           Int      @id @default(autoincrement())
+  context      String // "API" | "Lambda:job-processor" | etc.
+  errorMessage String   @map("error_message") @db.Text
+  stackTrace   String   @map("stack_trace") @db.Text
+  metadata     Json? // Request path, user ID, input parameters, etc.
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([context])
+  @@index([createdAt])
+  @@map("system_logs")
+}

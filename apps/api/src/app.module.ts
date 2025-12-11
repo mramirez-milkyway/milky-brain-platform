@@ -1,7 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
-import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core'
+import { APP_INTERCEPTOR, APP_GUARD, APP_FILTER } from '@nestjs/core'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
@@ -16,6 +16,7 @@ import { PdfModule } from './pdf/pdf.module'
 import { InfluencersModule } from './influencers/influencers.module'
 import { IntegrationsModule } from './integrations/integrations.module'
 import { JobsModule } from './jobs/jobs.module'
+import { SystemHealthModule } from './system-health/system-health.module'
 import { AuditInterceptor } from './common/interceptors/audit.interceptor'
 import { AuditService } from './common/services/audit.service'
 import { RedisService } from './common/services/redis.service'
@@ -23,6 +24,7 @@ import { ActivityTrackingMiddleware } from './common/middleware/activity-trackin
 import { CsrfGuard } from './common/guards/csrf.guard'
 import { SessionService } from './auth/services/session.service'
 import { HealthController } from './health/health.controller'
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
 
 @Module({
   controllers: [HealthController],
@@ -56,8 +58,13 @@ import { HealthController } from './health/health.controller'
     InfluencersModule,
     IntegrationsModule,
     JobsModule,
+    SystemHealthModule,
   ],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,
