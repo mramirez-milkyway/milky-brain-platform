@@ -1,20 +1,38 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/button/Button'
 import PermissionGuard from '@/components/PermissionGuard'
-import ExportQuotaIndicator from '@/components/export/ExportQuotaIndicator'
-import { Modal } from '@/components/ui/modal'
 
-interface Influencer {
+interface CreatorSocial {
   id: number
-  name: string
-  platform: string
-  followers: number
-  engagement: number
-  category: string
+  socialMedia: string
+  handle: string
+  followers: number | null
+  tier: string | null
+  socialLink: string | null
+}
+
+interface Creator {
+  id: number
+  fullName: string
+  country: string | null
+  city: string | null
+  categories: string | null
+  isActive: boolean
+  isBlacklisted: boolean
+  creatorSocials: CreatorSocial[]
+}
+
+interface CreatorsResponse {
+  data: Creator[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 // Platform icon component
@@ -23,19 +41,19 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 
   if (platformLower === 'tiktok') {
     return (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
       </svg>
     )
   } else if (platformLower === 'youtube') {
     return (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
       </svg>
     )
   } else if (platformLower === 'instagram') {
     return (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
       </svg>
     )
@@ -43,7 +61,7 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 
   // Default social icon
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -54,89 +72,61 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
   )
 }
 
-function InfluencersContent() {
-  const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
-  const [isExporting, setIsExporting] = useState(false)
-  const [modalState, setModalState] = useState<{
-    isOpen: boolean
-    type: 'success' | 'error'
-    title: string
-    message: string
-  }>({
-    isOpen: false,
-    type: 'success',
-    title: '',
-    message: '',
-  })
+// Parse categories JSON string safely
+function parseCategories(categories: string | null): string[] {
+  if (!categories) return []
+  try {
+    const parsed = JSON.parse(categories)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    // If not JSON, treat as comma-separated or single value
+    return categories
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
+  }
+}
 
-  // Fetch influencers
-  const { data: influencersData, isLoading } = useQuery({
-    queryKey: ['influencers', page],
+// Format followers count
+function formatFollowers(count: number | null): string {
+  if (count === null) return '-'
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1)}M`
+  }
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`
+  }
+  return count.toString()
+}
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
+function CreatorsContent() {
+  const router = useRouter()
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  // Fetch creators
+  const { data: creatorsData, isLoading } = useQuery<CreatorsResponse>({
+    queryKey: ['creators', page, pageSize],
     queryFn: async () => {
-      const res = await apiClient.get(`/influencers?page=${page}&pageSize=20`)
+      const res = await apiClient.get(`/creators?page=${page}&pageSize=${pageSize}`)
       return res.data
     },
   })
 
-  const influencers: Influencer[] = influencersData?.data || []
-  const totalPages = influencersData?.totalPages || 1
+  const creators: Creator[] = creatorsData?.data || []
+  const totalPages = creatorsData?.totalPages || 1
+  const total = creatorsData?.total || 0
 
-  // Export PDF
-  const handleExportPdf = async () => {
-    try {
-      setIsExporting(true)
-      const response = await apiClient.get('/influencers/export/pdf', {
-        responseType: 'blob',
-      })
+  // Reset to page 1 when page size changes
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize)
+    setPage(1)
+  }
 
-      // Create blob link to download
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-
-      // Get filename from headers or use default
-      const contentDisposition = response.headers['content-disposition']
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `influencer-list-${new Date().toISOString().split('T')[0]}.pdf`
-
-      link.setAttribute('download', filename)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-
-      // Refresh quota after successful export
-      queryClient.invalidateQueries({ queryKey: ['userQuota'] })
-
-      // Show success message
-      setModalState({
-        isOpen: true,
-        type: 'success',
-        title: 'Export Successful',
-        message: 'Your PDF has been downloaded successfully.',
-      })
-    } catch (error: any) {
-      let errorMessage = 'Failed to export PDF. Please try again.'
-
-      if (error.response?.status === 429) {
-        errorMessage =
-          error.response?.data?.message || 'Export limit reached. Please try again later.'
-      } else if (error.response?.status === 403) {
-        errorMessage = 'You do not have permission to export.'
-      }
-
-      setModalState({
-        isOpen: true,
-        type: 'error',
-        title: 'Export Failed',
-        message: errorMessage,
-      })
-
-      console.error('Export error:', error)
-    } finally {
-      setIsExporting(false)
-    }
+  const handleRowClick = (creatorId: number) => {
+    router.push(`/influencers/${creatorId}`)
   }
 
   if (isLoading) {
@@ -152,38 +142,11 @@ function InfluencersContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center space-x-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Influencer List</h1>
-            <span className="px-3 py-1 text-xs font-medium text-yellow-800 bg-yellow-100 rounded-full dark:bg-yellow-900 dark:text-yellow-300">
-              Mock Data - For Testing Only
-            </span>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Creators</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Test export controls with mock influencer data
+            {total} creators in database
           </p>
         </div>
-      </div>
-
-      {/* Export Quota Indicator */}
-      <ExportQuotaIndicator exportType="influencer_list" />
-
-      {/* Export Button */}
-      <div className="flex justify-end">
-        <Button
-          onClick={handleExportPdf}
-          disabled={isExporting}
-          className="flex items-center space-x-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
-        </Button>
       </div>
 
       {/* Table */}
@@ -193,137 +156,151 @@ function InfluencersContent() {
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
               <tr>
                 <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Platform</th>
-                <th className="px-6 py-3">Followers</th>
-                <th className="px-6 py-3">Engagement %</th>
-                <th className="px-6 py-3">Category</th>
+                <th className="px-6 py-3">Location</th>
+                <th className="px-6 py-3">Categories</th>
+                <th className="px-6 py-3">Social Accounts</th>
+                <th className="px-6 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
-              {influencers.map((influencer) => (
-                <tr
-                  key={influencer.id}
-                  className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                >
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                    {influencer.name}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                      <PlatformIcon platform={influencer.platform} />
-                      <span>{influencer.platform}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                    {influencer.followers.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                    {influencer.engagement}%
-                  </td>
-                  <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                    {influencer.category}
+              {creators.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    No creators found. Import creators to get started.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                creators.map((creator) => (
+                  <tr
+                    key={creator.id}
+                    onClick={() => handleRowClick(creator.id)}
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      {creator.fullName}
+                    </td>
+                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                      {[creator.city, creator.country].filter(Boolean).join(', ') || '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {parseCategories(creator.categories)
+                          .slice(0, 3)
+                          .map((category, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded dark:bg-blue-900 dark:text-blue-300"
+                            >
+                              {category}
+                            </span>
+                          ))}
+                        {parseCategories(creator.categories).length > 3 && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded dark:bg-gray-700 dark:text-gray-400">
+                            +{parseCategories(creator.categories).length - 3}
+                          </span>
+                        )}
+                        {parseCategories(creator.categories).length === 0 && (
+                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {creator.creatorSocials.slice(0, 3).map((social) => (
+                          <div
+                            key={social.id}
+                            className="flex items-center gap-1 text-gray-700 dark:text-gray-300"
+                            title={`${social.handle} - ${formatFollowers(social.followers)} followers`}
+                          >
+                            <PlatformIcon platform={social.socialMedia} />
+                            <span className="text-xs">{formatFollowers(social.followers)}</span>
+                          </div>
+                        ))}
+                        {creator.creatorSocials.length > 3 && (
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            +{creator.creatorSocials.length - 3}
+                          </span>
+                        )}
+                        {creator.creatorSocials.length === 0 && (
+                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {creator.isBlacklisted ? (
+                        <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded dark:bg-red-900 dark:text-red-300">
+                          Blacklisted
+                        </span>
+                      ) : creator.isActive ? (
+                        <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded dark:bg-green-900 dark:text-green-300">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded dark:bg-gray-700 dark:text-gray-300">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-gray-300">
+                Rows per page:
+              </label>
+              <select
+                id="pageSize"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-gray-300 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="text-sm text-gray-700 dark:text-gray-300">
-              Page {page} of {totalPages}
-            </div>
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-                className="px-3 py-1 text-sm"
-              >
-                Previous
-              </Button>
-              <Button
-                onClick={() => setPage(page + 1)}
-                disabled={page === totalPages}
-                className="px-3 py-1 text-sm"
-              >
-                Next
-              </Button>
+              Page {page} of {totalPages} ({total} total)
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Modal for success/error messages */}
-      <Modal
-        isOpen={modalState.isOpen}
-        onClose={() => setModalState({ ...modalState, isOpen: false })}
-        className="max-w-md mx-auto p-6"
-      >
-        <div className="text-center">
-          {/* Icon */}
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
-            {modalState.type === 'success' ? (
-              <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
-                <svg
-                  className="h-6 w-6 text-green-600 dark:text-green-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-            ) : (
-              <div className="rounded-full bg-red-100 p-3 dark:bg-red-900">
-                <svg
-                  className="h-6 w-6 text-red-600 dark:text-red-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </div>
-            )}
+          <div className="flex space-x-2">
+            <Button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              className="px-3 py-1 text-sm"
+            >
+              Previous
+            </Button>
+            <Button
+              onClick={() => setPage(page + 1)}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-sm"
+            >
+              Next
+            </Button>
           </div>
-
-          {/* Title */}
-          <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-            {modalState.title}
-          </h3>
-
-          {/* Message */}
-          <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">{modalState.message}</p>
-
-          {/* Close Button */}
-          <Button
-            onClick={() => setModalState({ ...modalState, isOpen: false })}
-            className="w-full"
-          >
-            Close
-          </Button>
         </div>
-      </Modal>
+      </div>
     </div>
   )
 }
 
-export default function InfluencersPage() {
+export default function CreatorsPage() {
   return (
-    <PermissionGuard permission="influencer:Read">
-      <InfluencersContent />
+    <PermissionGuard permission="creator:Read">
+      <CreatorsContent />
     </PermissionGuard>
   )
 }

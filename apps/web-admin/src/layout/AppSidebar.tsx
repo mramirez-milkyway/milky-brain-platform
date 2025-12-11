@@ -58,9 +58,9 @@ const navItems: NavItem[] = [
   },
   {
     icon: <UserCircleIcon />,
-    name: 'Influencers',
+    name: 'Creators',
     path: '/influencers',
-    permission: 'influencer:Read', // Only users with influencer:Read permission
+    permission: 'creator:Read', // Only users with creator:Read permission
   },
   {
     icon: <UploadIcon />,

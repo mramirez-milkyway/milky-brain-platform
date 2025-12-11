@@ -17,6 +17,7 @@ import { InfluencersModule } from './influencers/influencers.module'
 import { IntegrationsModule } from './integrations/integrations.module'
 import { JobsModule } from './jobs/jobs.module'
 import { SystemHealthModule } from './system-health/system-health.module'
+import { CreatorsModule } from './creators/creators.module'
 import { AuditInterceptor } from './common/interceptors/audit.interceptor'
 import { AuditService } from './common/services/audit.service'
 import { RedisService } from './common/services/redis.service'
@@ -59,6 +60,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
     IntegrationsModule,
     JobsModule,
     SystemHealthModule,
+    CreatorsModule,
   ],
   providers: [
     {
