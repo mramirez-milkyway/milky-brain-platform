@@ -1,6 +1,6 @@
 services:
   api:
-    image: ${API_IMAGE}:${IMAGE_TAG:-latest}
+    image: ${ECR_REGISTRY}/milky-way-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
       - .env
@@ -42,7 +42,7 @@ services:
         awslogs-create-group: 'true'
 
   web:
-    image: ${WEB_IMAGE}:${IMAGE_TAG:-latest}
+    image: ${ECR_REGISTRY}/milky-way-web-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
       - .env

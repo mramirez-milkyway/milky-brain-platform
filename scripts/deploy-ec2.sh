@@ -31,9 +31,14 @@ if [ -z "$AWS_REGION" ]; then
     AWS_REGION=${AWS_REGION:-eu-south-2}
 fi
 
-if [ -z "$API_IMAGE" ] || [ -z "$WEB_IMAGE" ]; then
-    echo -e "${RED}Error: API_IMAGE and WEB_IMAGE must be provided${NC}"
-    exit 1
+if [ -z "$ECR_REGISTRY" ]; then
+    # Get ECR registry from AWS if not provided
+    ECR_REGISTRY=$(aws ecr describe-repositories --region "$AWS_REGION" --query 'repositories[0].repositoryUri' --output text 2>/dev/null | cut -d'/' -f1)
+
+    if [ -z "$ECR_REGISTRY" ]; then
+        echo -e "${RED}Error: Could not determine ECR registry${NC}"
+        exit 1
+    fi
 fi
 
 if [ -z "$IMAGE_TAG" ]; then
@@ -42,21 +47,15 @@ fi
 
 echo -e "${YELLOW}Environment: $ENVIRONMENT${NC}"
 echo -e "${YELLOW}AWS Region: $AWS_REGION${NC}"
-echo -e "${YELLOW}API Image: $API_IMAGE${NC}"
-echo -e "${YELLOW}Web Image: $WEB_IMAGE${NC}"
+echo -e "${YELLOW}ECR Registry: $ECR_REGISTRY${NC}"
 echo -e "${YELLOW}Image Tag: $IMAGE_TAG${NC}"
 
-# Authenticate with GitHub Container Registry
-echo -e "${GREEN}Authenticating with GitHub Container Registry...${NC}"
-if [ -z "$GHCR_TOKEN" ] || [ -z "$GHCR_USER" ]; then
-    echo -e "${RED}Error: GHCR_TOKEN and GHCR_USER must be provided${NC}"
-    exit 1
-fi
-echo "$GHCR_TOKEN" | sudo docker login ghcr.io --username "$GHCR_USER" --password-stdin
+# Authenticate with ECR
+echo -e "${GREEN}Authenticating with ECR...${NC}"
+aws ecr get-login-password --region "$AWS_REGION" | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
 # Export environment variables for docker-compose and fetch-secrets script
-export API_IMAGE="$API_IMAGE"
-export WEB_IMAGE="$WEB_IMAGE"
+export ECR_REGISTRY="$ECR_REGISTRY"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 export ENVIRONMENT="$ENVIRONMENT"
 export AWS_REGION="$AWS_REGION"
@@ -69,8 +68,7 @@ else
     echo -e "${YELLOW}Warning: fetch-secrets.sh not found, creating .env manually${NC}"
     # Create basic .env with deployment variables
     cat > .env << ENVFILE
-API_IMAGE=$API_IMAGE
-WEB_IMAGE=$WEB_IMAGE
+ECR_REGISTRY=$ECR_REGISTRY
 IMAGE_TAG=$IMAGE_TAG
 ENVIRONMENT=$ENVIRONMENT
 AWS_REGION=$AWS_REGION
@@ -82,8 +80,8 @@ fi
 echo -e "${GREEN}Pulling latest images (tag: $IMAGE_TAG)...${NC}"
 
 # Pull images explicitly
-sudo docker pull "$API_IMAGE:$IMAGE_TAG"
-sudo docker pull "$WEB_IMAGE:$IMAGE_TAG"
+sudo docker pull "$ECR_REGISTRY/milky-way-api:$IMAGE_TAG"
+sudo docker pull "$ECR_REGISTRY/milky-way-web-admin:$IMAGE_TAG"
 
 # Show what images we're about to use
 echo -e "${GREEN}Images to be deployed:${NC}"

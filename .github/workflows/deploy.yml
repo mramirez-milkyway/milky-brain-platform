@@ -13,17 +13,15 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'eu-south-2' }}
-  GHCR_REGISTRY: ghcr.io
 
 jobs:
   build-and-push:
-    name: Build and Push to GHCR (${{ github.event.inputs.environment }})
+    name: Build and Push to ECR (${{ github.event.inputs.environment }})
     runs-on: ubuntu-latest
 
     permissions:
       id-token: write
       contents: read
-      packages: write
 
     steps:
       - name: Checkout code
@@ -35,32 +33,29 @@ jobs:
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
           echo "image_tag=${{ github.event.inputs.environment }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          registry: ${{ env.GHCR_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set image names
-        id: set-images
-        run: |
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "api_image=${{ env.GHCR_REGISTRY }}/${REPO_OWNER}/milky-way-api" >> $GITHUB_OUTPUT
-          echo "web_image=${{ env.GHCR_REGISTRY }}/${REPO_OWNER}/milky-way-web-admin" >> $GITHUB_OUTPUT
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push API image
         env:
-          IMAGE_NAME: ${{ steps.set-images.outputs.api_image }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: milky-way-api
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
         run: |
-          docker build -t $IMAGE_NAME:$IMAGE_TAG \
-                       -t $IMAGE_NAME:latest \
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
                        --target production \
                        -f apps/api/Dockerfile \
                        .
-          docker push $IMAGE_NAME:$IMAGE_TAG
-          docker push $IMAGE_NAME:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Set API URL for environment
         id: set-api-url
@@ -73,25 +68,26 @@ jobs:
 
       - name: Build and push Web Admin image
         env:
-          IMAGE_NAME: ${{ steps.set-images.outputs.web_image }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: milky-way-web-admin
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
           NEXT_PUBLIC_API_URL: ${{ steps.set-api-url.outputs.api_url }}
         run: |
-          docker build -t $IMAGE_NAME:$IMAGE_TAG \
-                       -t $IMAGE_NAME:latest \
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
                        --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
                        --target production \
                        -f apps/web-admin/Dockerfile \
                        .
-          docker push $IMAGE_NAME:$IMAGE_TAG
-          docker push $IMAGE_NAME:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Image build summary
         run: |
           echo "### Docker Images Built :whale:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **API:** ${{ steps.set-images.outputs.api_image }}:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Web Admin:** ${{ steps.set-images.outputs.web_image }}:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** ${{ steps.login-ecr.outputs.registry }}/milky-way-api:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Admin:** ${{ steps.login-ecr.outputs.registry }}/milky-way-web-admin:${{ steps.set-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
 
   deploy-lambda:
     name: Deploy Lambda Function (${{ github.event.inputs.environment }})
@@ -232,7 +228,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      packages: read
 
     steps:
       - name: Checkout code
@@ -253,18 +248,15 @@ jobs:
             echo "ec2_host=${{ secrets.QA_EC2_HOST }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set image names
-        id: set-images
-        run: |
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "api_image=${{ env.GHCR_REGISTRY }}/${REPO_OWNER}/milky-way-api" >> $GITHUB_OUTPUT
-          echo "web_image=${{ env.GHCR_REGISTRY }}/${REPO_OWNER}/milky-way-web-admin" >> $GITHUB_OUTPUT
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Setup SSH key
         run: |
@@ -277,13 +269,9 @@ jobs:
         env:
           EC2_HOST: ${{ steps.set-host.outputs.ec2_host }}
           ENVIRONMENT: ${{ github.event.inputs.environment }}
-          GHCR_REGISTRY: ${{ env.GHCR_REGISTRY }}
-          API_IMAGE: ${{ steps.set-images.outputs.api_image }}
-          WEB_IMAGE: ${{ steps.set-images.outputs.web_image }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           AWS_REGION: ${{ env.AWS_REGION }}
           IMAGE_TAG: ${{ steps.set-tag.outputs.image_tag }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
         run: |
           # Copy deployment files to EC2
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@$EC2_HOST:/tmp/
@@ -291,36 +279,26 @@ jobs:
           scp -i ~/.ssh/deploy_key scripts/deploy-ec2.sh ec2-user@$EC2_HOST:/tmp/
 
           ssh -i ~/.ssh/deploy_key ec2-user@$EC2_HOST bash -s -- \
-            "$API_IMAGE" \
-            "$WEB_IMAGE" \
+            "$ECR_REGISTRY" \
             "$IMAGE_TAG" \
             "$ENVIRONMENT" \
-            "$AWS_REGION" \
-            "$GHCR_TOKEN" \
-            "$GHCR_USER" << 'ENDSSH'
+            "$AWS_REGION" << 'ENDSSH'
             set -e
 
             # Get parameters passed from GitHub Actions
-            API_IMAGE="$1"
-            WEB_IMAGE="$2"
-            IMAGE_TAG="$3"
-            ENVIRONMENT="$4"
-            AWS_REGION="$5"
-            GHCR_TOKEN="$6"
-            GHCR_USER="$7"
+            ECR_REGISTRY="$1"
+            IMAGE_TAG="$2"
+            ENVIRONMENT="$3"
+            AWS_REGION="$4"
 
             # Export for use in subshells and scripts
-            export API_IMAGE
-            export WEB_IMAGE
+            export ECR_REGISTRY
             export IMAGE_TAG
             export ENVIRONMENT
             export AWS_REGION
-            export GHCR_TOKEN
-            export GHCR_USER
 
             echo "=== Deployment Parameters ==="
-            echo "API_IMAGE: $API_IMAGE"
-            echo "WEB_IMAGE: $WEB_IMAGE"
+            echo "ECR_REGISTRY: $ECR_REGISTRY"
             echo "IMAGE_TAG: $IMAGE_TAG"
             echo "ENVIRONMENT: $ENVIRONMENT"
             echo "AWS_REGION: $AWS_REGION"
