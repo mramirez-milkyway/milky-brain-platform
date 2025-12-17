@@ -12,7 +12,8 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "seed:influencers": "npm run seed:influencers --workspace=@milky-way/api --"
   },
   "devDependencies": {
     "turbo": "^1.11.2",

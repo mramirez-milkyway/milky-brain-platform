@@ -11,19 +11,28 @@ export class CreatorsController {
   constructor(private readonly creatorsService: CreatorsService) {}
 
   /**
-   * List creators with pagination
+   * List creators with pagination and filters
    *
    * @permission creator:Read
    * @query page - Page number (default: 1)
    * @query pageSize - Results per page (default: 20, max: 100)
+   * @query platform - Social media platform filter (instagram, tiktok, youtube)
+   * @query handle - Search by social media handle (partial match)
+   * @query country - Filter by creator countries (comma-separated, max 5)
+   * @query gender - Filter by creator gender (male, female, organization)
+   * @query language - Filter by creator language
+   * @query minFollowers - Minimum follower count
+   * @query maxFollowers - Maximum follower count
+   * @query minEngagementRate - Minimum engagement rate percentage
+   * @query categories - Filter by categories (comma-separated)
+   * @query excludeBlacklisted - Exclude blacklisted creators (default: true)
+   * @query minInternalRating - Minimum internal rating (0-100)
+   * @query hasWorkedWithUs - Filter by campaign participation
    */
   @Get()
   @RequirePermission('creator:Read')
   async findAll(@Query() query: CreatorQueryDto) {
-    const page = query.page ?? 1
-    const pageSize = query.pageSize ?? 20
-
-    return this.creatorsService.findAll(page, pageSize)
+    return this.creatorsService.findAll(query)
   }
 
   /**

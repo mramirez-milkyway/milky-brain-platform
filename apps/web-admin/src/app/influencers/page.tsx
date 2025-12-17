@@ -1,11 +1,13 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/button/Button'
 import PermissionGuard from '@/components/PermissionGuard'
+import { FilterBar } from './components/FilterBar'
+import { useInfluencerFilters } from './hooks/useInfluencerFilters'
 
 interface CreatorSocial {
   id: number
@@ -103,14 +105,17 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 function CreatorsContent() {
   const router = useRouter()
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const { filters, setPage, setPageSize, queryString, clearFilters } = useInfluencerFilters()
 
-  // Fetch creators
-  const { data: creatorsData, isLoading } = useQuery<CreatorsResponse>({
-    queryKey: ['creators', page, pageSize],
+  // Fetch creators with filters
+  const {
+    data: creatorsData,
+    isLoading,
+    isFetching,
+  } = useQuery<CreatorsResponse>({
+    queryKey: ['creators', queryString],
     queryFn: async () => {
-      const res = await apiClient.get(`/creators?page=${page}&pageSize=${pageSize}`)
+      const res = await apiClient.get(`/creators?${queryString}`)
       return res.data
     },
   })
@@ -118,23 +123,16 @@ function CreatorsContent() {
   const creators: Creator[] = creatorsData?.data || []
   const totalPages = creatorsData?.totalPages || 1
   const total = creatorsData?.total || 0
+  const page = filters.page
+  const pageSize = filters.pageSize
 
-  // Reset to page 1 when page size changes
+  // Handle page size changes
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize)
-    setPage(1)
   }
 
   const handleRowClick = (creatorId: number) => {
     router.push(`/influencers/${creatorId}`)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
-      </div>
-    )
   }
 
   return (
@@ -144,10 +142,16 @@ function CreatorsContent() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Creators</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {total} creators in database
+            {isLoading ? 'Loading...' : `${total} creators found`}
+            {isFetching && !isLoading && (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">Updating...</span>
+            )}
           </p>
         </div>
       </div>
+
+      {/* Filter Bar */}
+      <FilterBar />
 
       {/* Table */}
       <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
@@ -163,13 +167,48 @@ function CreatorsContent() {
               </tr>
             </thead>
             <tbody>
-              {creators.length === 0 ? (
+              {isLoading ? (
                 <tr>
                   <td
                     colSpan={5}
                     className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
                   >
-                    No creators found. Import creators to get started.
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Loading creators...
+                    </div>
+                  </td>
+                </tr>
+              ) : creators.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    <div className="space-y-2">
+                      <p>No creators match your filters.</p>
+                      <Button
+                        onClick={clearFilters}
+                        className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Clear Filters
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -297,10 +336,24 @@ function CreatorsContent() {
   )
 }
 
-export default function CreatorsPage() {
+function CreatorsPageContent() {
   return (
     <PermissionGuard permission="creator:Read">
       <CreatorsContent />
     </PermissionGuard>
+  )
+}
+
+export default function CreatorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
+        </div>
+      }
+    >
+      <CreatorsPageContent />
+    </Suspense>
   )
 }

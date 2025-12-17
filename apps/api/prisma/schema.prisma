@@ -395,6 +395,10 @@ model Creator {
   @@index([email])
   @@index([isActive])
   @@index([isBlacklisted])
+  @@index([country])
+  @@index([gender])
+  @@index([internalRating])
+  @@index([isBlacklisted, country, gender])
   @@map("creators")
 }
 
@@ -428,6 +432,9 @@ model CreatorSocial {
   @@index([creatorId])
   @@index([socialMedia])
   @@index([handle])
+  @@index([followers])
+  @@index([socialMedia, creatorId])
+  @@index([socialMedia, followers])
   @@map("creator_socials")
 }
 

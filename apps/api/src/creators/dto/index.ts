@@ -1,7 +1,48 @@
-import { IsOptional, IsInt, Min, Max, IsString } from 'class-validator'
-import { Type } from 'class-transformer'
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsString,
+  IsEnum,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  ArrayMaxSize,
+} from 'class-validator'
+import { Type, Transform } from 'class-transformer'
+
+// Valid social media platforms
+export const PLATFORMS = ['instagram', 'tiktok', 'youtube'] as const
+export type Platform = (typeof PLATFORMS)[number]
+
+// Valid gender values
+export const GENDERS = ['male', 'female', 'organization'] as const
+export type Gender = (typeof GENDERS)[number]
+
+/**
+ * Helper to transform comma-separated string to array
+ */
+function transformToArray(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') return value.split(',').map((s) => s.trim())
+  return undefined
+}
+
+/**
+ * Helper to transform string 'true'/'false' to boolean
+ */
+function transformToBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value === 'boolean') return value
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return undefined
+}
 
 export class CreatorQueryDto {
+  // === Pagination ===
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -14,6 +55,173 @@ export class CreatorQueryDto {
   @Min(1)
   @Max(100)
   pageSize?: number = 20
+
+  // === Required Filter ===
+  @IsOptional()
+  @IsString()
+  @IsEnum(PLATFORMS, { message: 'platform must be one of: instagram, tiktok, youtube' })
+  platform?: Platform = 'instagram'
+
+  // === Basic Filters ===
+  @IsOptional()
+  @IsString()
+  handle?: string
+
+  // === Demographics - Creator ===
+  @IsOptional()
+  @Transform(({ value }) => transformToArray(value))
+  @IsArray()
+  @ArrayMaxSize(5, { message: 'Maximum 5 countries allowed' })
+  @IsString({ each: true })
+  country?: string[]
+
+  @IsOptional()
+  @IsString()
+  @IsEnum(GENDERS, { message: 'gender must be one of: male, female, organization' })
+  gender?: Gender
+
+  @IsOptional()
+  @IsString()
+  language?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(13)
+  minAge?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Max(100)
+  maxAge?: number
+
+  // === Demographics - Audience ===
+  @IsOptional()
+  @Transform(({ value }) => transformToArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  audienceCountry?: string[]
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  audienceCountryMinPercent?: number
+
+  @IsOptional()
+  @IsString()
+  @IsEnum(['male', 'female'], { message: 'audienceGender must be one of: male, female' })
+  audienceGender?: 'male' | 'female'
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  audienceGenderMinPercent?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(13)
+  audienceMinAge?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Max(100)
+  audienceMaxAge?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  audienceAgeMinPercent?: number
+
+  // === Performance Metrics ===
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minFollowers?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  maxFollowers?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  minEngagementRate?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Max(100)
+  maxEngagementRate?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minReelsPlays?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  maxReelsPlays?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minTiktokViews?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  maxTiktokViews?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  minCredibility?: number
+
+  // === Internal Filters ===
+  @IsOptional()
+  @Transform(({ value }) => transformToArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[]
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    // Default to true if not specified
+    if (value === undefined || value === null || value === '') return true
+    return transformToBoolean(value)
+  })
+  @IsBoolean()
+  excludeBlacklisted?: boolean = true
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  minInternalRating?: number
+
+  @IsOptional()
+  @Transform(({ value }) => transformToBoolean(value))
+  @IsBoolean()
+  hasWorkedWithUs?: boolean
 }
 
 export interface CreatorSocialResponseDto {

@@ -18,6 +18,7 @@
     "prisma:migrate:reset": "DOTENV_CONFIG_PATH=../../.env node -r dotenv/config ../../node_modules/.bin/prisma migrate reset",
     "prisma:studio": "DOTENV_CONFIG_PATH=../../.env node -r dotenv/config ../../node_modules/.bin/prisma studio",
     "seed": "DOTENV_CONFIG_PATH=../../.env node -r dotenv/config ../../node_modules/.bin/ts-node scripts/seed.ts",
+    "seed:influencers": "DOTENV_CONFIG_PATH=../../.env node -r dotenv/config ../../node_modules/.bin/ts-node prisma/seeds/seed-influencers.ts",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
     "@nestjs/cli": "^10.3.0",
     "@nestjs/schematics": "^10.1.0",
     "@nestjs/testing": "^10.3.0",
