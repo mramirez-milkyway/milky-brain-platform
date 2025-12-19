@@ -646,4 +646,352 @@ export class CreatorsRepository {
       },
     })
   }
+
+  /**
+   * Find a soft-deleted creator by handle and platform
+   * Used for restore-on-create logic
+   */
+  async findSoftDeletedByHandleAndPlatform(
+    handle: string,
+    platform: string
+  ): Promise<CreatorWithSocials | null> {
+    // Find creator social that is soft-deleted with matching handle/platform
+    const creatorSocial = await this.prisma.creatorSocial.findFirst({
+      where: {
+        handle: { equals: handle, mode: 'insensitive' },
+        socialMedia: platform,
+        deletedAt: { not: null },
+      },
+      include: {
+        creator: true,
+      },
+    })
+
+    if (!creatorSocial) {
+      return null
+    }
+
+    // Return full creator with all socials
+    return this.prisma.creator.findFirst({
+      where: {
+        id: creatorSocial.creatorId,
+      },
+      include: {
+        creatorSocials: true,
+      },
+    })
+  }
+
+  /**
+   * Find an active creator by handle and platform
+   * Used to check for duplicates
+   */
+  async findActiveByHandleAndPlatform(
+    handle: string,
+    platform: string
+  ): Promise<CreatorWithSocials | null> {
+    const creatorSocial = await this.prisma.creatorSocial.findFirst({
+      where: {
+        handle: { equals: handle, mode: 'insensitive' },
+        socialMedia: platform,
+        deletedAt: null,
+      },
+      include: {
+        creator: {
+          include: {
+            creatorSocials: {
+              where: { deletedAt: null },
+            },
+          },
+        },
+      },
+    })
+
+    if (!creatorSocial || creatorSocial.creator.deletedAt !== null) {
+      return null
+    }
+
+    return creatorSocial.creator as CreatorWithSocials
+  }
+
+  /**
+   * Create a new creator with social accounts
+   */
+  async create(data: {
+    fullName: string
+    gender?: string
+    country?: string
+    city?: string
+    email?: string
+    phoneNumber?: string
+    characteristics?: string
+    pastClients?: string
+    pastCampaigns?: string
+    comments?: string
+    languages?: string
+    categories?: string
+    internalTags?: string
+    agencyName?: string
+    managerName?: string
+    billingInfo?: string
+    internalRating?: number
+    socialAccounts: Array<{
+      handle: string
+      platform: string
+      followers?: number
+      tier?: string
+      socialLink?: string
+    }>
+  }): Promise<CreatorWithSocials> {
+    const { socialAccounts, ...creatorData } = data
+
+    return this.prisma.creator.create({
+      data: {
+        ...creatorData,
+        creatorSocials: {
+          create: socialAccounts.map((sa) => ({
+            handle: sa.handle,
+            socialMedia: sa.platform,
+            followers: sa.followers,
+            tier: sa.tier,
+            socialLink: sa.socialLink,
+          })),
+        },
+      },
+      include: {
+        creatorSocials: {
+          where: { deletedAt: null },
+          orderBy: { followers: 'desc' },
+        },
+      },
+    })
+  }
+
+  /**
+   * Restore a soft-deleted creator and update with new data
+   */
+  async restore(
+    creatorId: number,
+    data: {
+      fullName?: string
+      gender?: string
+      country?: string
+      city?: string
+      email?: string
+      phoneNumber?: string
+      characteristics?: string
+      pastClients?: string
+      pastCampaigns?: string
+      comments?: string
+      languages?: string
+      categories?: string
+      internalTags?: string
+      agencyName?: string
+      managerName?: string
+      billingInfo?: string
+      internalRating?: number
+      socialAccounts?: Array<{
+        handle: string
+        platform: string
+        followers?: number
+        tier?: string
+        socialLink?: string
+      }>
+    }
+  ): Promise<CreatorWithSocials> {
+    const { socialAccounts, ...creatorData } = data
+
+    // Restore creator and update data
+    await this.prisma.creator.update({
+      where: { id: creatorId },
+      data: {
+        ...creatorData,
+        deletedAt: null,
+      },
+    })
+
+    // Restore and update social accounts
+    if (socialAccounts && socialAccounts.length > 0) {
+      for (const sa of socialAccounts) {
+        await this.prisma.creatorSocial.updateMany({
+          where: {
+            creatorId,
+            handle: { equals: sa.handle, mode: 'insensitive' },
+            socialMedia: sa.platform,
+          },
+          data: {
+            deletedAt: null,
+            followers: sa.followers,
+            tier: sa.tier,
+            socialLink: sa.socialLink,
+          },
+        })
+      }
+    } else {
+      // Restore all social accounts if none specified
+      await this.prisma.creatorSocial.updateMany({
+        where: { creatorId },
+        data: { deletedAt: null },
+      })
+    }
+
+    return this.prisma.creator.findFirstOrThrow({
+      where: { id: creatorId },
+      include: {
+        creatorSocials: {
+          where: { deletedAt: null },
+          orderBy: { followers: 'desc' },
+        },
+      },
+    })
+  }
+
+  /**
+   * Update a creator
+   */
+  async update(
+    id: number,
+    data: {
+      fullName?: string
+      gender?: string
+      country?: string
+      city?: string
+      email?: string
+      phoneNumber?: string
+      characteristics?: string
+      pastClients?: string
+      pastCampaigns?: string
+      comments?: string
+      isActive?: boolean
+      languages?: string
+      categories?: string
+      internalTags?: string
+      isBlacklisted?: boolean
+      blacklistReason?: string
+      agencyName?: string
+      managerName?: string
+      billingInfo?: string
+      internalRating?: number
+    }
+  ): Promise<CreatorWithSocials> {
+    return this.prisma.creator.update({
+      where: { id },
+      data,
+      include: {
+        creatorSocials: {
+          where: { deletedAt: null },
+          orderBy: { followers: 'desc' },
+        },
+      },
+    })
+  }
+
+  /**
+   * Soft delete a creator and all associated social accounts
+   */
+  async softDelete(id: number): Promise<void> {
+    const now = new Date()
+
+    await this.prisma.$transaction([
+      this.prisma.creator.update({
+        where: { id },
+        data: { deletedAt: now },
+      }),
+      this.prisma.creatorSocial.updateMany({
+        where: { creatorId: id },
+        data: { deletedAt: now },
+      }),
+    ])
+  }
+
+  /**
+   * Get distinct filter options from the database
+   * Returns countries, cities (grouped by country), languages, and categories
+   */
+  async getFilterOptions(): Promise<{
+    countries: string[]
+    citiesByCountry: Record<string, string[]>
+    languages: string[]
+    categories: string[]
+  }> {
+    // Get distinct countries
+    const countriesResult = await this.prisma.$queryRaw<{ country: string }[]>`
+      SELECT DISTINCT "country"
+      FROM "creators"
+      WHERE "deleted_at" IS NULL AND "country" IS NOT NULL AND "country" != ''
+      ORDER BY "country" ASC
+    `
+    const countries = countriesResult.map((r) => r.country)
+
+    // Get distinct cities grouped by country
+    const citiesResult = await this.prisma.$queryRaw<{ country: string; city: string }[]>`
+      SELECT DISTINCT "country", "city"
+      FROM "creators"
+      WHERE "deleted_at" IS NULL
+        AND "country" IS NOT NULL AND "country" != ''
+        AND "city" IS NOT NULL AND "city" != ''
+      ORDER BY "country" ASC, "city" ASC
+    `
+    const citiesByCountry: Record<string, string[]> = {}
+    for (const row of citiesResult) {
+      if (!citiesByCountry[row.country]) {
+        citiesByCountry[row.country] = []
+      }
+      citiesByCountry[row.country].push(row.city)
+    }
+
+    // Get all unique languages from JSON arrays
+    const languagesResult = await this.prisma.$queryRaw<{ languages: string }[]>`
+      SELECT DISTINCT "languages"
+      FROM "creators"
+      WHERE "deleted_at" IS NULL AND "languages" IS NOT NULL AND "languages" != ''
+    `
+    const languagesSet = new Set<string>()
+    for (const row of languagesResult) {
+      try {
+        const parsed = JSON.parse(row.languages) as string[]
+        if (Array.isArray(parsed)) {
+          parsed.forEach((lang) => {
+            if (lang && typeof lang === 'string') {
+              languagesSet.add(lang.trim())
+            }
+          })
+        }
+      } catch {
+        // If not valid JSON, treat as single value
+        if (row.languages.trim()) {
+          languagesSet.add(row.languages.trim())
+        }
+      }
+    }
+    const languages = Array.from(languagesSet).sort()
+
+    // Get all unique categories from JSON arrays
+    const categoriesResult = await this.prisma.$queryRaw<{ categories: string }[]>`
+      SELECT DISTINCT "categories"
+      FROM "creators"
+      WHERE "deleted_at" IS NULL AND "categories" IS NOT NULL AND "categories" != ''
+    `
+    const categoriesSet = new Set<string>()
+    for (const row of categoriesResult) {
+      try {
+        const parsed = JSON.parse(row.categories) as string[]
+        if (Array.isArray(parsed)) {
+          parsed.forEach((cat) => {
+            if (cat && typeof cat === 'string') {
+              categoriesSet.add(cat.trim())
+            }
+          })
+        }
+      } catch {
+        // If not valid JSON, treat as single value
+        if (row.categories.trim()) {
+          categoriesSet.add(row.categories.trim())
+        }
+      }
+    }
+    const categories = Array.from(categoriesSet).sort()
+
+    return { countries, citiesByCountry, languages, categories }
+  }
 }

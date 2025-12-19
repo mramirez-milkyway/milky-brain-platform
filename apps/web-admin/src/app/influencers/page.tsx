@@ -1,13 +1,15 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/button/Button'
 import PermissionGuard from '@/components/PermissionGuard'
-import { FilterBar } from './components/FilterBar'
+import { FilterBar, AddInfluencerModal } from './components'
 import { useInfluencerFilters } from './hooks/useInfluencerFilters'
+import { usePermission } from '@/hooks/usePermission'
+import { useModal } from '@/hooks/useModal'
 
 interface CreatorSocial {
   id: number
@@ -106,12 +108,17 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 function CreatorsContent() {
   const router = useRouter()
   const { filters, setPage, setPageSize, queryString, clearFilters } = useInfluencerFilters()
+  const { hasPermission } = usePermission() as { hasPermission: (action: string) => boolean }
+  const addModal = useModal()
+
+  const canCreate = hasPermission('creator:Create')
 
   // Fetch creators with filters
   const {
     data: creatorsData,
     isLoading,
     isFetching,
+    refetch,
   } = useQuery<CreatorsResponse>({
     queryKey: ['creators', queryString],
     queryFn: async () => {
@@ -148,7 +155,27 @@ function CreatorsContent() {
             )}
           </p>
         </div>
+        {canCreate && (
+          <Button onClick={addModal.openModal}>
+            <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Add Influencer
+          </Button>
+        )}
       </div>
+
+      {/* Add Influencer Modal */}
+      <AddInfluencerModal
+        isOpen={addModal.isOpen}
+        onClose={addModal.closeModal}
+        onSuccess={() => refetch()}
+      />
 
       {/* Filter Bar */}
       <FilterBar />

@@ -9,6 +9,9 @@ import {
   IsNumber,
   IsArray,
   ArrayMaxSize,
+  IsNotEmpty,
+  IsEmail,
+  ValidateNested,
 } from 'class-validator'
 import { Type, Transform } from 'class-transformer'
 
@@ -283,4 +286,213 @@ export interface CreatorListResponseDto {
   page: number
   pageSize: number
   totalPages: number
+}
+
+// ==================== CREATE/UPDATE DTOs ====================
+
+/**
+ * DTO for creating a new social media account for a creator
+ */
+export class CreateCreatorSocialDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Handle is required' })
+  handle: string
+
+  @IsString()
+  @IsEnum(PLATFORMS, { message: 'Platform must be one of: instagram, tiktok, youtube' })
+  platform: Platform
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  followers?: number
+
+  @IsOptional()
+  @IsString()
+  tier?: string
+
+  @IsOptional()
+  @IsString()
+  socialLink?: string
+}
+
+/**
+ * DTO for creating a new creator/influencer
+ */
+export class CreateCreatorDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Full name is required' })
+  fullName: string
+
+  @ValidateNested({ each: true })
+  @Type(() => CreateCreatorSocialDto)
+  @IsArray()
+  @ArrayMaxSize(10, { message: 'Maximum 10 social accounts allowed' })
+  socialAccounts: CreateCreatorSocialDto[]
+
+  @IsOptional()
+  @IsString()
+  @IsEnum(GENDERS, { message: 'Gender must be one of: male, female, organization' })
+  gender?: Gender
+
+  @IsOptional()
+  @IsString()
+  country?: string
+
+  @IsOptional()
+  @IsString()
+  city?: string
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email format' })
+  email?: string
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string
+
+  @IsOptional()
+  @IsString()
+  characteristics?: string
+
+  @IsOptional()
+  @IsString()
+  pastClients?: string
+
+  @IsOptional()
+  @IsString()
+  pastCampaigns?: string
+
+  @IsOptional()
+  @IsString()
+  comments?: string
+
+  @IsOptional()
+  @IsString()
+  languages?: string
+
+  @IsOptional()
+  @IsString()
+  categories?: string
+
+  @IsOptional()
+  @IsString()
+  internalTags?: string
+
+  @IsOptional()
+  @IsString()
+  agencyName?: string
+
+  @IsOptional()
+  @IsString()
+  managerName?: string
+
+  @IsOptional()
+  @IsString()
+  billingInfo?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  internalRating?: number
+}
+
+/**
+ * DTO for updating an existing creator/influencer
+ */
+export class UpdateCreatorDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Full name cannot be empty' })
+  fullName?: string
+
+  @IsOptional()
+  @IsString()
+  @IsEnum(GENDERS, { message: 'Gender must be one of: male, female, organization' })
+  gender?: Gender
+
+  @IsOptional()
+  @IsString()
+  country?: string
+
+  @IsOptional()
+  @IsString()
+  city?: string
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email format' })
+  email?: string
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string
+
+  @IsOptional()
+  @IsString()
+  characteristics?: string
+
+  @IsOptional()
+  @IsString()
+  pastClients?: string
+
+  @IsOptional()
+  @IsString()
+  pastCampaigns?: string
+
+  @IsOptional()
+  @IsString()
+  comments?: string
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean
+
+  @IsOptional()
+  @IsString()
+  languages?: string
+
+  @IsOptional()
+  @IsString()
+  categories?: string
+
+  @IsOptional()
+  @IsString()
+  internalTags?: string
+
+  @IsOptional()
+  @IsBoolean()
+  isBlacklisted?: boolean
+
+  @IsOptional()
+  @IsString()
+  blacklistReason?: string
+
+  @IsOptional()
+  @IsString()
+  agencyName?: string
+
+  @IsOptional()
+  @IsString()
+  managerName?: string
+
+  @IsOptional()
+  @IsString()
+  billingInfo?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  internalRating?: number
+}
+
+/**
+ * Response DTO for create operation - includes restored flag
+ */
+export interface CreateCreatorResponseDto extends CreatorDetailDto {
+  restored: boolean
 }

@@ -98,8 +98,10 @@ export class CreatorImportHandler extends BaseJobHandler {
     let errorCount = 0
     let skippedCount = 0
     let createdCreators = 0
+    let restoredCreators = 0
     let updatedSocialAccounts = 0
     let createdSocialAccounts = 0
+    let restoredSocialAccounts = 0
 
     // Group rows by creator_id
     const creatorGroups = new Map<string, CreatorData[]>()
@@ -149,15 +151,62 @@ export class CreatorImportHandler extends BaseJobHandler {
         // Get creator data from first row (all rows should have same creator data)
         const firstRow = socialAccounts[0]
 
-        // Find or create creator
+        // Find or create creator (check both active and soft-deleted)
         let creator = await context.prisma.creator.findFirst({
           where: {
             fullName: {
               equals: firstRow.fullName,
               mode: 'insensitive',
             },
+            deletedAt: null, // First check active creators
           },
         })
+
+        // If not found, check for soft-deleted creator
+        if (!creator) {
+          const softDeletedCreator = await context.prisma.creator.findFirst({
+            where: {
+              fullName: {
+                equals: firstRow.fullName,
+                mode: 'insensitive',
+              },
+              deletedAt: { not: null },
+            },
+          })
+
+          if (softDeletedCreator) {
+            // Restore the soft-deleted creator
+            creator = await context.prisma.creator.update({
+              where: { id: softDeletedCreator.id },
+              data: {
+                deletedAt: null,
+                gender: firstRow.gender ?? softDeletedCreator.gender,
+                country: firstRow.country ?? softDeletedCreator.country,
+                city: firstRow.city ?? softDeletedCreator.city,
+                email: firstRow.email ?? softDeletedCreator.email,
+                phoneNumber: firstRow.phoneNumber ?? softDeletedCreator.phoneNumber,
+                characteristics: firstRow.characteristics ?? softDeletedCreator.characteristics,
+                pastClients: firstRow.pastClients ?? softDeletedCreator.pastClients,
+                pastCampaigns: firstRow.pastCampaigns ?? softDeletedCreator.pastCampaigns,
+                comments: firstRow.comments ?? softDeletedCreator.comments,
+                languages: firstRow.languages ?? softDeletedCreator.languages,
+                categories: firstRow.categories ?? softDeletedCreator.categories,
+                internalTags: firstRow.internalTags ?? softDeletedCreator.internalTags,
+                isBlacklisted: firstRow.isBlacklisted ?? softDeletedCreator.isBlacklisted,
+                blacklistReason: firstRow.blacklistReason ?? softDeletedCreator.blacklistReason,
+                agencyName: firstRow.agencyName ?? softDeletedCreator.agencyName,
+                managerName: firstRow.managerName ?? softDeletedCreator.managerName,
+                billingInfo: firstRow.billingInfo ?? softDeletedCreator.billingInfo,
+              },
+            })
+
+            restoredCreators++
+            await this.logInfo(
+              context,
+              `Restored soft-deleted creator: ${creator.fullName} (ID: ${creator.id})`
+            )
+          }
+        }
 
         if (!creator) {
           // Create new creator
@@ -254,28 +303,55 @@ export class CreatorImportHandler extends BaseJobHandler {
             })
 
             if (existingSocial) {
-              // Update existing social account (only non-null values)
-              const socialUpdateData: Record<string, unknown> = {}
+              // Check if it's soft-deleted - if so, restore it
+              if (existingSocial.deletedAt !== null) {
+                // Restore soft-deleted social account
+                const socialUpdateData: Record<string, unknown> = {
+                  deletedAt: null, // Clear the soft-delete marker
+                  creatorId: creator.id, // Link to current creator
+                }
 
-              if (socialData.followers !== null && socialData.followers !== undefined)
-                socialUpdateData.followers = socialData.followers
-              if (socialData.tier !== null && socialData.tier !== undefined)
-                socialUpdateData.tier = socialData.tier
-              if (socialData.socialLink !== null && socialData.socialLink !== undefined)
-                socialUpdateData.socialLink = socialData.socialLink
+                if (socialData.followers !== null && socialData.followers !== undefined)
+                  socialUpdateData.followers = socialData.followers
+                if (socialData.tier !== null && socialData.tier !== undefined)
+                  socialUpdateData.tier = socialData.tier
+                if (socialData.socialLink !== null && socialData.socialLink !== undefined)
+                  socialUpdateData.socialLink = socialData.socialLink
 
-              if (Object.keys(socialUpdateData).length > 0) {
                 await context.prisma.creatorSocial.update({
                   where: { id: existingSocial.id },
                   data: socialUpdateData,
                 })
-              }
 
-              updatedSocialAccounts++
-              await this.logInfo(
-                context,
-                `Updated social account: ${socialData.handle} (${socialData.socialMedia})`
-              )
+                restoredSocialAccounts++
+                await this.logInfo(
+                  context,
+                  `Restored soft-deleted social account: ${socialData.handle} (${socialData.socialMedia})`
+                )
+              } else {
+                // Update existing active social account (only non-null values)
+                const socialUpdateData: Record<string, unknown> = {}
+
+                if (socialData.followers !== null && socialData.followers !== undefined)
+                  socialUpdateData.followers = socialData.followers
+                if (socialData.tier !== null && socialData.tier !== undefined)
+                  socialUpdateData.tier = socialData.tier
+                if (socialData.socialLink !== null && socialData.socialLink !== undefined)
+                  socialUpdateData.socialLink = socialData.socialLink
+
+                if (Object.keys(socialUpdateData).length > 0) {
+                  await context.prisma.creatorSocial.update({
+                    where: { id: existingSocial.id },
+                    data: socialUpdateData,
+                  })
+                }
+
+                updatedSocialAccounts++
+                await this.logInfo(
+                  context,
+                  `Updated social account: ${socialData.handle} (${socialData.socialMedia})`
+                )
+              }
             } else {
               // Create new social account
               await context.prisma.creatorSocial.create({
@@ -325,13 +401,15 @@ export class CreatorImportHandler extends BaseJobHandler {
       errorCount,
       skippedCount,
       createdCreators,
+      restoredCreators,
       createdSocialAccounts,
+      restoredSocialAccounts,
       updatedSocialAccounts,
     }
 
     await this.logInfo(
       context,
-      `Import complete: ${createdCreators} creators created, ${createdSocialAccounts} social accounts created, ${updatedSocialAccounts} social accounts updated, ${errorCount} errors, ${skippedCount} skipped`
+      `Import complete: ${createdCreators} creators created, ${restoredCreators} restored, ${createdSocialAccounts} social accounts created, ${restoredSocialAccounts} social accounts restored, ${updatedSocialAccounts} social accounts updated, ${errorCount} errors, ${skippedCount} skipped`
     )
 
     return summary

@@ -5,6 +5,9 @@ import { apiClient } from '@/lib/api-client'
 import { useParams, useRouter } from 'next/navigation'
 import Button from '@/components/ui/button/Button'
 import PermissionGuard from '@/components/PermissionGuard'
+import { usePermission } from '@/hooks/usePermission'
+import { useModal } from '@/hooks/useModal'
+import { EditInfluencerModal, DeleteInfluencerModal } from '../components'
 
 interface CreatorSocial {
   id: number
@@ -92,7 +95,10 @@ function parseJsonArray(value: string | null): string[] {
     const parsed = JSON.parse(value)
     return Array.isArray(parsed) ? parsed : []
   } catch {
-    return value.split(',').map((c) => c.trim()).filter(Boolean)
+    return value
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
   }
 }
 
@@ -148,11 +154,18 @@ function CreatorDetailContent() {
   const params = useParams()
   const router = useRouter()
   const creatorId = params.id as string
+  const { hasPermission } = usePermission() as { hasPermission: (action: string) => boolean }
+  const editModal = useModal()
+  const deleteModal = useModal()
+
+  const canUpdate = hasPermission('creator:Update')
+  const canDelete = hasPermission('creator:Delete')
 
   const {
     data: creator,
     isLoading,
     error,
+    refetch,
   } = useQuery<CreatorDetail>({
     queryKey: ['creator', creatorId],
     queryFn: async () => {
@@ -193,7 +206,12 @@ function CreatorDetailContent() {
             className="flex items-center space-x-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             <span>Back</span>
           </Button>
@@ -204,7 +222,7 @@ function CreatorDetailContent() {
             </p>
           </div>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
           {creator.isBlacklisted ? (
             <span className="px-3 py-1 text-sm font-medium bg-red-100 text-red-800 rounded-full dark:bg-red-900 dark:text-red-300">
               Blacklisted
@@ -218,8 +236,54 @@ function CreatorDetailContent() {
               Inactive
             </span>
           )}
+          {canUpdate && (
+            <Button variant="outline" onClick={editModal.openModal}>
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="outline"
+              onClick={deleteModal.openModal}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              Delete
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      <EditInfluencerModal
+        isOpen={editModal.isOpen}
+        onClose={editModal.closeModal}
+        creator={creator}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Delete Modal */}
+      <DeleteInfluencerModal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.closeModal}
+        creator={creator}
+        onSuccess={() => router.push('/influencers')}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Basic Info */}
@@ -276,9 +340,7 @@ function CreatorDetailContent() {
                       {formatFollowers(social.followers)}
                     </div>
                     {social.tier && (
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {social.tier}
-                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{social.tier}</div>
                     )}
                   </div>
                 </div>
@@ -346,7 +408,10 @@ function CreatorDetailContent() {
         <Section title="Campaign Metrics">
           <InfoRow label="Last Brand" value={creator.lastBrand} />
           <InfoRow label="Active Campaigns" value={creator.campaignsActive?.toString()} />
-          <InfoRow label="Last Campaign Completed" value={formatDate(creator.lastCampaignCompleted)} />
+          <InfoRow
+            label="Last Campaign Completed"
+            value={formatDate(creator.lastCampaignCompleted)}
+          />
           <InfoRow label="Last Fee" value={creator.lastFee ? `$${creator.lastFee}` : null} />
           <InfoRow label="Last CPV" value={creator.lastCpv?.toFixed(2)} />
           <InfoRow label="Last CPM" value={creator.lastCpm?.toFixed(2)} />

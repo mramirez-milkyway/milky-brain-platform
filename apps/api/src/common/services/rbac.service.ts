@@ -143,6 +143,12 @@ export class RbacService {
               'navigation:Read',
               'influencer:Read',
               'influencer:Export',
+              'influencer:Import',
+              // Creator management permissions
+              'creator:Read',
+              'creator:Create',
+              'creator:Update',
+              // Note: creator:Delete is intentionally NOT included for Editors
             ],
             Resources: ['res:*'],
           },
@@ -163,6 +169,8 @@ export class RbacService {
               'navigation:Read',
               'influencer:Read',
               'influencer:Export',
+              // Viewers can only read creators, no create/update/delete
+              'creator:Read',
             ],
             Resources: ['res:*'],
           },
