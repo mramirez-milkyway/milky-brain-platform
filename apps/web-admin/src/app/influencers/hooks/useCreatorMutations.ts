@@ -27,7 +27,7 @@ export interface CreateCreatorInput {
   languages?: string
   categories?: string
   internalTags?: string
-  agencyName?: string
+  agencyId?: number
   managerName?: string
   billingInfo?: string
   internalRating?: number
@@ -50,7 +50,7 @@ export interface UpdateCreatorInput {
   internalTags?: string
   isBlacklisted?: boolean
   blacklistReason?: string
-  agencyName?: string
+  agencyId?: number
   managerName?: string
   billingInfo?: string
   internalRating?: number
@@ -74,7 +74,8 @@ export interface CreatorResponse {
   internalTags: string | null
   isBlacklisted: boolean
   blacklistReason: string | null
-  agencyName: string | null
+  agencyId: number | null
+  agency: { id: number; name: string } | null
   managerName: string | null
   billingInfo: string | null
   internalRating: number | null

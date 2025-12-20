@@ -21,11 +21,19 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: '*.tiktokcdn-us.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'p16-sign-va.tiktokcdn.com',
       },
       {
         protocol: 'https',
         hostname: 'p16-sign.tiktokcdn-us.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'p16-common-sign.tiktokcdn-us.com',
       },
       // YouTube CDN
       {

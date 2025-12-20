@@ -1,11 +1,23 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Modal } from '@/components/ui/modal'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Label from '@/components/form/Label'
 import { useUpdateCreator, type UpdateCreatorInput } from '../hooks/useCreatorMutations'
+import { useAgencies, useCreateAgency } from '../hooks/useAgencies'
+import { useFilterOptions } from '../hooks/useFilterOptions'
+import { AgencySelect } from './AgencySelect'
+import { MultiSelectDropdown } from './MultiSelectDropdown'
+import {
+  getCountryDisplay,
+  getCategoryIcon,
+  getLanguageName,
+  getLanguageFlag,
+  parseToArray,
+} from '../utils/displayHelpers'
+import type { Agency } from '../hooks/useAgencies'
 
 interface CreatorSocial {
   id: number
@@ -34,7 +46,8 @@ interface CreatorData {
   internalTags: string | null
   isBlacklisted: boolean
   blacklistReason: string | null
-  agencyName: string | null
+  agencyId: number | null
+  agency: { id: number; name: string } | null
   managerName: string | null
   billingInfo: string | null
   internalRating: number | null
@@ -55,31 +68,20 @@ interface FormData {
   city: string
   email: string
   phoneNumber: string
-  categories: string
-  languages: string
+  categories: string[]
+  languages: string[]
   internalTags: string
   characteristics: string
   pastClients: string
   pastCampaigns: string
   comments: string
-  agencyName: string
+  agencyId: number | null
   managerName: string
   billingInfo: string
   internalRating: number | ''
   isActive: boolean
   isBlacklisted: boolean
   blacklistReason: string
-}
-
-// Parse JSON string or comma-separated list
-function parseToString(value: string | null): string {
-  if (!value) return ''
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.join(', ') : value
-  } catch {
-    return value
-  }
 }
 
 export function EditInfluencerModal({
@@ -95,14 +97,14 @@ export function EditInfluencerModal({
     city: '',
     email: '',
     phoneNumber: '',
-    categories: '',
-    languages: '',
+    categories: [],
+    languages: [],
     internalTags: '',
     characteristics: '',
     pastClients: '',
     pastCampaigns: '',
     comments: '',
-    agencyName: '',
+    agencyId: null,
     managerName: '',
     billingInfo: '',
     internalRating: '',
@@ -113,6 +115,9 @@ export function EditInfluencerModal({
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
   const updateCreator = useUpdateCreator()
+  const { data: agencies = [] } = useAgencies()
+  const createAgency = useCreateAgency()
+  const { data: filterOptions } = useFilterOptions()
 
   // Populate form when creator data changes
   useEffect(() => {
@@ -124,14 +129,14 @@ export function EditInfluencerModal({
         city: creator.city || '',
         email: creator.email || '',
         phoneNumber: creator.phoneNumber || '',
-        categories: parseToString(creator.categories),
-        languages: parseToString(creator.languages),
-        internalTags: parseToString(creator.internalTags),
+        categories: parseToArray(creator.categories),
+        languages: parseToArray(creator.languages),
+        internalTags: creator.internalTags || '',
         characteristics: creator.characteristics || '',
         pastClients: creator.pastClients || '',
         pastCampaigns: creator.pastCampaigns || '',
         comments: creator.comments || '',
-        agencyName: creator.agencyName || '',
+        agencyId: creator.agencyId,
         managerName: creator.managerName || '',
         billingInfo: creator.billingInfo || '',
         internalRating: creator.internalRating ?? '',
@@ -174,6 +179,19 @@ export function EditInfluencerModal({
     [formErrors]
   )
 
+  // Handle agency selection
+  const handleAgencyChange = useCallback((agency: Agency | null) => {
+    setFormData((prev) => ({ ...prev, agencyId: agency?.id ?? null }))
+  }, [])
+
+  // Handle multi-select array fields
+  const handleArrayFieldChange = useCallback(
+    (field: 'categories' | 'languages') => (values: string[]) => {
+      setFormData((prev) => ({ ...prev, [field]: values }))
+    },
+    []
+  )
+
   // Validate form
   const validateForm = useCallback((): boolean => {
     const errors: Partial<Record<keyof FormData, string>> = {}
@@ -209,14 +227,14 @@ export function EditInfluencerModal({
       city: formData.city || undefined,
       email: formData.email || undefined,
       phoneNumber: formData.phoneNumber || undefined,
-      categories: formData.categories || undefined,
-      languages: formData.languages || undefined,
+      categories: formData.categories.length > 0 ? JSON.stringify(formData.categories) : undefined,
+      languages: formData.languages.length > 0 ? JSON.stringify(formData.languages) : undefined,
       internalTags: formData.internalTags || undefined,
       characteristics: formData.characteristics || undefined,
       pastClients: formData.pastClients || undefined,
       pastCampaigns: formData.pastCampaigns || undefined,
       comments: formData.comments || undefined,
-      agencyName: formData.agencyName || undefined,
+      agencyId: formData.agencyId || undefined,
       managerName: formData.managerName || undefined,
       billingInfo: formData.billingInfo || undefined,
       internalRating: formData.internalRating !== '' ? formData.internalRating : undefined,
@@ -269,10 +287,7 @@ export function EditInfluencerModal({
               </h5>
               <div className="space-y-2">
                 {creator.creatorSocials.map((social) => (
-                  <div
-                    key={social.id}
-                    className="flex items-center justify-between text-sm"
-                  >
+                  <div key={social.id} className="flex items-center justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">
                       {social.socialMedia}: @{social.handle}
                     </span>
@@ -357,12 +372,18 @@ export function EditInfluencerModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Country</Label>
-                  <Input
-                    type="text"
+                  <select
                     value={formData.country}
                     onChange={handleFieldChange('country')}
-                    placeholder="e.g., United States"
-                  />
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
+                  >
+                    <option value="">Select country</option>
+                    {filterOptions?.countries.map((country) => (
+                      <option key={country} value={country}>
+                        {getCountryDisplay(country)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <Label>City</Label>
@@ -413,20 +434,23 @@ export function EditInfluencerModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Categories</Label>
-                  <Input
-                    type="text"
-                    value={formData.categories}
-                    onChange={handleFieldChange('categories')}
-                    placeholder="e.g., fashion, beauty, lifestyle"
+                  <MultiSelectDropdown
+                    options={filterOptions?.categories ?? []}
+                    selected={formData.categories}
+                    onChange={handleArrayFieldChange('categories')}
+                    placeholder="Select categories..."
+                    getIcon={getCategoryIcon}
                   />
                 </div>
                 <div>
                   <Label>Languages</Label>
-                  <Input
-                    type="text"
-                    value={formData.languages}
-                    onChange={handleFieldChange('languages')}
-                    placeholder="e.g., English, Spanish"
+                  <MultiSelectDropdown
+                    options={filterOptions?.languages ?? []}
+                    selected={formData.languages}
+                    onChange={handleArrayFieldChange('languages')}
+                    placeholder="Select languages..."
+                    getIcon={getLanguageFlag}
+                    getDisplayText={getLanguageName}
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -444,16 +468,21 @@ export function EditInfluencerModal({
             {/* Agency Info */}
             <div className="space-y-4">
               <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Agency Information
+                Agency & Management
               </h5>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Agency Name</Label>
-                  <Input
-                    type="text"
-                    value={formData.agencyName}
-                    onChange={handleFieldChange('agencyName')}
-                    placeholder="Agency name if applicable"
+                  <Label>Agency</Label>
+                  <AgencySelect
+                    agencies={agencies}
+                    selectedId={formData.agencyId}
+                    onChange={handleAgencyChange}
+                    onCreateNew={async (name) => {
+                      const result = await createAgency.mutateAsync(name)
+                      return result
+                    }}
+                    isCreating={createAgency.isPending}
+                    placeholder="Select or create agency..."
                   />
                 </div>
                 <div>

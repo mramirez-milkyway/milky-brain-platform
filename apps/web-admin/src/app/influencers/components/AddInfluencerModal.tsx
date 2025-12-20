@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Modal } from '@/components/ui/modal'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
@@ -9,6 +9,16 @@ import { useImaiProfileLookup } from '../hooks/useImaiProfileLookup'
 import { useCreateCreator, type CreateCreatorInput } from '../hooks/useCreatorMutations'
 import { ProfilePreviewCard, ProfilePreviewSkeleton } from './ProfilePreviewCard'
 import { useFilterOptions } from '../hooks/useFilterOptions'
+import { useAgencies, useCreateAgency } from '../hooks/useAgencies'
+import { AgencySelect } from './AgencySelect'
+import { MultiSelectDropdown } from './MultiSelectDropdown'
+import {
+  getCountryDisplay,
+  getCategoryIcon,
+  getLanguageFlag,
+  getLanguageName,
+} from '../utils/displayHelpers'
+import type { Agency } from '../hooks/useAgencies'
 
 type Platform = 'instagram' | 'tiktok' | 'youtube'
 type Step = 'lookup' | 'preview' | 'form'
@@ -55,262 +65,6 @@ const PLATFORMS: { value: Platform; label: string }[] = [
   { value: 'youtube', label: 'YouTube' },
 ]
 
-// Country code to name mapping (DB stores codes like "US", "AR", etc.)
-const COUNTRY_NAMES: Record<string, string> = {
-  US: 'United States',
-  ES: 'Spain',
-  MX: 'Mexico',
-  AR: 'Argentina',
-  CO: 'Colombia',
-  BR: 'Brazil',
-  GB: 'United Kingdom',
-  UK: 'United Kingdom',
-  FR: 'France',
-  DE: 'Germany',
-  IT: 'Italy',
-  PT: 'Portugal',
-  CL: 'Chile',
-  PE: 'Peru',
-  VE: 'Venezuela',
-  EC: 'Ecuador',
-  CA: 'Canada',
-  AU: 'Australia',
-  JP: 'Japan',
-  KR: 'South Korea',
-  IN: 'India',
-  CN: 'China',
-  RU: 'Russia',
-  NL: 'Netherlands',
-  BE: 'Belgium',
-  CH: 'Switzerland',
-  AT: 'Austria',
-  PL: 'Poland',
-  SE: 'Sweden',
-  NO: 'Norway',
-  DK: 'Denmark',
-  FI: 'Finland',
-  IE: 'Ireland',
-  NZ: 'New Zealand',
-  ZA: 'South Africa',
-  TR: 'Turkey',
-  GR: 'Greece',
-  IL: 'Israel',
-  AE: 'United Arab Emirates',
-  SA: 'Saudi Arabia',
-  SG: 'Singapore',
-  TH: 'Thailand',
-  ID: 'Indonesia',
-  MY: 'Malaysia',
-  PH: 'Philippines',
-  VN: 'Vietnam',
-  TW: 'Taiwan',
-  HK: 'Hong Kong',
-  EG: 'Egypt',
-  NG: 'Nigeria',
-  KE: 'Kenya',
-  MA: 'Morocco',
-  UA: 'Ukraine',
-  CZ: 'Czech Republic',
-  RO: 'Romania',
-  HU: 'Hungary',
-  PR: 'Puerto Rico',
-  DO: 'Dominican Republic',
-  GT: 'Guatemala',
-  CR: 'Costa Rica',
-  PA: 'Panama',
-  UY: 'Uruguay',
-  PY: 'Paraguay',
-  BO: 'Bolivia',
-  HN: 'Honduras',
-  SV: 'El Salvador',
-  NI: 'Nicaragua',
-  CU: 'Cuba',
-}
-
-// Country code to flag emoji
-const getCountryFlag = (code: string): string => {
-  const upperCode = code.toUpperCase()
-  // Check if it looks like a country code (2 letters)
-  if (upperCode.length === 2 && /^[A-Z]{2}$/.test(upperCode)) {
-    const codePoints = upperCode.split('').map((char) => 127397 + char.charCodeAt(0))
-    return String.fromCodePoint(...codePoints)
-  }
-  return '🌍' // Default globe for unknown format
-}
-
-// Get display text for country select option
-const getCountryDisplay = (code: string): string => {
-  const flag = getCountryFlag(code)
-  const name = COUNTRY_NAMES[code.toUpperCase()] || code
-  return `${flag} ${name}`
-}
-
-// Category icons
-const CATEGORY_ICONS: Record<string, string> = {
-  beauty: '💄',
-  fashion: '👗',
-  gaming: '🎮',
-  food: '🍔',
-  travel: '✈️',
-  fitness: '💪',
-  tech: '💻',
-  music: '🎵',
-  comedy: '😂',
-  lifestyle: '🏠',
-  education: '📚',
-  sports: '⚽',
-  art: '🎨',
-  photography: '📷',
-  parenting: '👶',
-  automotive: '🚗',
-  pets: '🐶',
-  health: '🏥',
-  finance: '💰',
-  diy: '🔨',
-  books: '📖',
-  movies: '🎬',
-  nature: '🌿',
-  spirituality: '🧘',
-}
-
-const getCategoryIcon = (category: string): string => {
-  return CATEGORY_ICONS[category.toLowerCase()] || '📌'
-}
-
-// Multi-select dropdown component
-interface MultiSelectDropdownProps {
-  options: string[]
-  selected: string[]
-  onChange: (selected: string[]) => void
-  placeholder: string
-  getIcon?: (value: string) => string
-}
-
-function MultiSelectDropdown({
-  options,
-  selected,
-  onChange,
-  placeholder,
-  getIcon,
-}: MultiSelectDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const filteredOptions = options.filter((option) =>
-    option.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const handleToggle = (value: string) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter((v) => v !== value))
-    } else {
-      onChange([...selected, value])
-    }
-  }
-
-  const handleRemove = (value: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    onChange(selected.filter((v) => v !== value))
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      {/* Trigger */}
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className="min-h-[44px] px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent dark:bg-gray-900 text-gray-800 dark:text-white cursor-pointer flex items-center flex-wrap gap-1"
-      >
-        {selected.length === 0 ? (
-          <span className="text-gray-400 dark:text-white/30">{placeholder}</span>
-        ) : (
-          selected.map((value) => (
-            <span
-              key={value}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs"
-            >
-              {getIcon && <span>{getIcon(value)}</span>}
-              {value}
-              <button
-                onClick={(e) => handleRemove(value, e)}
-                className="hover:text-blue-600 ml-0.5"
-              >
-                &times;
-              </button>
-            </span>
-          ))
-        )}
-        <svg
-          className={`w-4 h-4 ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg">
-          {/* Search input */}
-          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          {/* Options */}
-          <div className="max-h-48 overflow-y-auto">
-            {filteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500">No options found</div>
-            ) : (
-              filteredOptions.map((option) => {
-                const isSelected = selected.includes(option)
-                return (
-                  <div
-                    key={option}
-                    onClick={() => handleToggle(option)}
-                    className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer ${
-                      isSelected
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      readOnly
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    {getIcon && <span>{getIcon(option)}</span>}
-                    <span>{option}</span>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 interface AddInfluencerModalProps {
   isOpen: boolean
   onClose: () => void
@@ -331,6 +85,8 @@ interface FormData {
   languages: string[]
   characteristics: string
   comments: string
+  agencyId: number | null
+  managerName: string
   internalRating: number | ''
 }
 
@@ -348,6 +104,8 @@ const initialFormData: FormData = {
   languages: [],
   characteristics: '',
   comments: '',
+  agencyId: null,
+  managerName: '',
   internalRating: '',
 }
 
@@ -361,6 +119,10 @@ export function AddInfluencerModal({ isOpen, onClose, onSuccess }: AddInfluencer
 
   // Filter options for dropdowns
   const { data: filterOptions } = useFilterOptions()
+
+  // Agencies
+  const { data: agencies = [] } = useAgencies()
+  const createAgency = useCreateAgency()
 
   // IMAI profile lookup
   const {
@@ -456,6 +218,11 @@ export function AddInfluencerModal({ isOpen, onClose, onSuccess }: AddInfluencer
     []
   )
 
+  // Handle agency selection
+  const handleAgencyChange = useCallback((agency: Agency | null) => {
+    setFormData((prev) => ({ ...prev, agencyId: agency?.id ?? null }))
+  }, [])
+
   // Validate form
   const validateForm = useCallback((): boolean => {
     const errors: Partial<Record<keyof FormData, string>> = {}
@@ -503,6 +270,8 @@ export function AddInfluencerModal({ isOpen, onClose, onSuccess }: AddInfluencer
       languages: formData.languages.length > 0 ? JSON.stringify(formData.languages) : undefined,
       characteristics: formData.characteristics || undefined,
       comments: formData.comments || undefined,
+      agencyId: formData.agencyId || undefined,
+      managerName: formData.managerName || undefined,
       internalRating: formData.internalRating !== '' ? formData.internalRating : undefined,
     }
 
@@ -841,6 +610,40 @@ export function AddInfluencerModal({ isOpen, onClose, onSuccess }: AddInfluencer
                       selected={formData.languages}
                       onChange={handleArrayFieldChange('languages')}
                       placeholder="Select languages..."
+                      getIcon={getLanguageFlag}
+                      getDisplayText={getLanguageName}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Agency & Manager */}
+              <div className="space-y-4">
+                <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Agency & Management
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Agency</Label>
+                    <AgencySelect
+                      agencies={agencies}
+                      selectedId={formData.agencyId}
+                      onChange={handleAgencyChange}
+                      onCreateNew={async (name) => {
+                        const result = await createAgency.mutateAsync(name)
+                        return result
+                      }}
+                      isCreating={createAgency.isPending}
+                      placeholder="Select or create agency..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Manager Name</Label>
+                    <Input
+                      type="text"
+                      value={formData.managerName}
+                      onChange={handleFieldChange('managerName')}
+                      placeholder="e.g., John Smith"
                     />
                   </div>
                 </div>

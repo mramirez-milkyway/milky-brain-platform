@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common'
-import { PrismaClient, Creator, CreatorSocial, Prisma } from '@prisma/client'
+import { PrismaClient, Creator, CreatorSocial, Agency, Prisma } from '@prisma/client'
 import { CreatorQueryDto, Platform } from './dto'
 
 export type CreatorWithSocials = Creator & {
   creatorSocials: CreatorSocial[]
+  agency?: Agency | null
 }
 
 export interface CreatorFilters {
@@ -643,6 +644,7 @@ export class CreatorsRepository {
             followers: 'desc',
           },
         },
+        agency: true,
       },
     })
   }
@@ -731,7 +733,7 @@ export class CreatorsRepository {
     languages?: string
     categories?: string
     internalTags?: string
-    agencyName?: string
+    agencyId?: number
     managerName?: string
     billingInfo?: string
     internalRating?: number
@@ -763,6 +765,7 @@ export class CreatorsRepository {
           where: { deletedAt: null },
           orderBy: { followers: 'desc' },
         },
+        agency: true,
       },
     })
   }
@@ -786,7 +789,7 @@ export class CreatorsRepository {
       languages?: string
       categories?: string
       internalTags?: string
-      agencyName?: string
+      agencyId?: number
       managerName?: string
       billingInfo?: string
       internalRating?: number
@@ -842,6 +845,7 @@ export class CreatorsRepository {
           where: { deletedAt: null },
           orderBy: { followers: 'desc' },
         },
+        agency: true,
       },
     })
   }
@@ -868,7 +872,7 @@ export class CreatorsRepository {
       internalTags?: string
       isBlacklisted?: boolean
       blacklistReason?: string
-      agencyName?: string
+      agencyId?: number
       managerName?: string
       billingInfo?: string
       internalRating?: number
@@ -882,6 +886,7 @@ export class CreatorsRepository {
           where: { deletedAt: null },
           orderBy: { followers: 'desc' },
         },
+        agency: true,
       },
     })
   }

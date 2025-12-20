@@ -265,7 +265,8 @@ export interface CreatorDetailDto {
   internalTags: string | null
   isBlacklisted: boolean
   blacklistReason: string | null
-  agencyName: string | null
+  agencyId: number | null
+  agency: { id: number; name: string } | null
   managerName: string | null
   billingInfo: string | null
   lastBrand: string | null
@@ -381,8 +382,9 @@ export class CreateCreatorDto {
   internalTags?: string
 
   @IsOptional()
-  @IsString()
-  agencyName?: string
+  @Type(() => Number)
+  @IsInt()
+  agencyId?: number
 
   @IsOptional()
   @IsString()
@@ -471,8 +473,9 @@ export class UpdateCreatorDto {
   blacklistReason?: string
 
   @IsOptional()
-  @IsString()
-  agencyName?: string
+  @Type(() => Number)
+  @IsInt()
+  agencyId?: number
 
   @IsOptional()
   @IsString()

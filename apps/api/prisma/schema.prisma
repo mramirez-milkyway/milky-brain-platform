@@ -340,6 +340,21 @@ model Influencer {
   @@map("influencers")
 }
 
+// Agency model - represents talent agencies/management companies
+model Agency {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relationships
+  creators Creator[]
+
+  @@index([name])
+  @@map("agencies")
+}
+
 // Creator model - represents influencers/content creators
 model Creator {
   id          Int     @id @default(autoincrement()) @map("id")
@@ -365,7 +380,9 @@ model Creator {
   blacklistReason String? @map("blacklist_reason") @db.Text
 
   // Agency/Management
-  agencyName  String? @map("agency_name")
+  agencyId    Int?    @map("agency_id")
+  agency      Agency? @relation(fields: [agencyId], references: [id])
+  agencyName  String? @map("agency_name") // Deprecated: kept for backwards compatibility
   managerName String? @map("manager_name")
   billingInfo String? @map("billing_info") @db.Text
 
@@ -399,6 +416,7 @@ model Creator {
   @@index([gender])
   @@index([internalRating])
   @@index([isBlacklisted, country, gender])
+  @@index([agencyId])
   @@map("creators")
 }
 
