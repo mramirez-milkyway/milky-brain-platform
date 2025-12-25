@@ -20,25 +20,45 @@ export interface InfluencerFilters {
   country?: string[]
   gender?: Gender
   language?: string
+  minAge?: number
+  maxAge?: number
   // Performance
   minFollowers?: number
   maxFollowers?: number
+  minEngagements?: number
+  maxEngagements?: number
   minEngagementRate?: number
   maxEngagementRate?: number
   minCredibility?: number
-  // Platform-specific
+  // Platform-specific - Instagram
   minReelsPlays?: number
   maxReelsPlays?: number
+  minFollowersCredibility?: number
+  maxFollowersCredibility?: number
+  // Platform-specific - TikTok
   minTiktokViews?: number
   maxTiktokViews?: number
+  minTiktokSaves?: number
+  maxTiktokSaves?: number
+  minTiktokShares?: number
+  maxTiktokShares?: number
+  // Platform-specific - YouTube
+  minYoutubeViews?: number
+  maxYoutubeViews?: number
   // Audience demographics
   audienceCountry?: string[]
   audienceCountryMinPercent?: number
   audienceGender?: AudienceGender
   audienceGenderMinPercent?: number
+  audienceLanguage?: string
+  audienceLanguageMinPercent?: number
   audienceMinAge?: number
   audienceMaxAge?: number
   audienceAgeMinPercent?: number
+  // Account
+  onlyVerified?: boolean
+  onlyCredible?: boolean
+  excludePrivate?: boolean
   // Internal
   categories?: string[]
   excludeBlacklisted: boolean
@@ -104,25 +124,45 @@ export function useInfluencerFilters() {
       country: parseArrayParam(searchParams.get('country')),
       gender: (searchParams.get('gender') as Gender) ?? undefined,
       language: searchParams.get('language') ?? undefined,
+      minAge: parseNumberParam(searchParams.get('minAge')),
+      maxAge: parseNumberParam(searchParams.get('maxAge')),
       // Performance
       minFollowers: parseNumberParam(searchParams.get('minFollowers')),
       maxFollowers: parseNumberParam(searchParams.get('maxFollowers')),
+      minEngagements: parseNumberParam(searchParams.get('minEngagements')),
+      maxEngagements: parseNumberParam(searchParams.get('maxEngagements')),
       minEngagementRate: parseNumberParam(searchParams.get('minEngagementRate')),
       maxEngagementRate: parseNumberParam(searchParams.get('maxEngagementRate')),
       minCredibility: parseNumberParam(searchParams.get('minCredibility')),
-      // Platform-specific
+      // Platform-specific - Instagram
       minReelsPlays: parseNumberParam(searchParams.get('minReelsPlays')),
       maxReelsPlays: parseNumberParam(searchParams.get('maxReelsPlays')),
+      minFollowersCredibility: parseNumberParam(searchParams.get('minFollowersCredibility')),
+      maxFollowersCredibility: parseNumberParam(searchParams.get('maxFollowersCredibility')),
+      // Platform-specific - TikTok
       minTiktokViews: parseNumberParam(searchParams.get('minTiktokViews')),
       maxTiktokViews: parseNumberParam(searchParams.get('maxTiktokViews')),
+      minTiktokSaves: parseNumberParam(searchParams.get('minTiktokSaves')),
+      maxTiktokSaves: parseNumberParam(searchParams.get('maxTiktokSaves')),
+      minTiktokShares: parseNumberParam(searchParams.get('minTiktokShares')),
+      maxTiktokShares: parseNumberParam(searchParams.get('maxTiktokShares')),
+      // Platform-specific - YouTube
+      minYoutubeViews: parseNumberParam(searchParams.get('minYoutubeViews')),
+      maxYoutubeViews: parseNumberParam(searchParams.get('maxYoutubeViews')),
       // Audience demographics
       audienceCountry: parseArrayParam(searchParams.get('audienceCountry')),
       audienceCountryMinPercent: parseNumberParam(searchParams.get('audienceCountryMinPercent')),
       audienceGender: (searchParams.get('audienceGender') as AudienceGender) ?? undefined,
       audienceGenderMinPercent: parseNumberParam(searchParams.get('audienceGenderMinPercent')),
+      audienceLanguage: searchParams.get('audienceLanguage') ?? undefined,
+      audienceLanguageMinPercent: parseNumberParam(searchParams.get('audienceLanguageMinPercent')),
       audienceMinAge: parseNumberParam(searchParams.get('audienceMinAge')),
       audienceMaxAge: parseNumberParam(searchParams.get('audienceMaxAge')),
       audienceAgeMinPercent: parseNumberParam(searchParams.get('audienceAgeMinPercent')),
+      // Account
+      onlyVerified: searchParams.get('onlyVerified') === 'true' ? true : undefined,
+      onlyCredible: searchParams.get('onlyCredible') === 'true' ? true : undefined,
+      excludePrivate: searchParams.get('excludePrivate') === 'true' ? true : undefined,
       // Internal
       categories: parseArrayParam(searchParams.get('categories')),
       excludeBlacklisted: parseBooleanParam(
@@ -252,8 +292,9 @@ export function useInfluencerFilters() {
     if (filters.country && filters.country.length > 0) count++
     if (filters.gender) count++
     if (filters.language) count++
-    if (filters.minFollowers !== undefined) count++
-    if (filters.maxFollowers !== undefined) count++
+    if (filters.minAge !== undefined || filters.maxAge !== undefined) count++
+    if (filters.minFollowers !== undefined || filters.maxFollowers !== undefined) count++
+    if (filters.minEngagements !== undefined || filters.maxEngagements !== undefined) count++
     if (filters.minEngagementRate !== undefined) count++
     if (filters.minCredibility !== undefined) count++
     if (filters.categories && filters.categories.length > 0) count++
@@ -263,9 +304,25 @@ export function useInfluencerFilters() {
     // Audience filters
     if (filters.audienceCountry && filters.audienceCountry.length > 0) count++
     if (filters.audienceGender) count++
-    // Platform-specific
+    if (filters.audienceLanguage) count++
+    if (filters.audienceMinAge !== undefined || filters.audienceMaxAge !== undefined) count++
+    // Account filters
+    if (filters.onlyVerified) count++
+    if (filters.onlyCredible) count++
+    if (filters.excludePrivate) count++
+    // Platform-specific - Instagram
     if (filters.minReelsPlays !== undefined || filters.maxReelsPlays !== undefined) count++
+    if (
+      filters.minFollowersCredibility !== undefined ||
+      filters.maxFollowersCredibility !== undefined
+    )
+      count++
+    // Platform-specific - TikTok
     if (filters.minTiktokViews !== undefined || filters.maxTiktokViews !== undefined) count++
+    if (filters.minTiktokSaves !== undefined || filters.maxTiktokSaves !== undefined) count++
+    if (filters.minTiktokShares !== undefined || filters.maxTiktokShares !== undefined) count++
+    // Platform-specific - YouTube
+    if (filters.minYoutubeViews !== undefined || filters.maxYoutubeViews !== undefined) count++
     return count
   }, [filters])
 
@@ -287,8 +344,14 @@ export function useInfluencerFilters() {
     }
     if (filters.gender) params.set('gender', filters.gender)
     if (filters.language) params.set('language', filters.language)
+    if (filters.minAge !== undefined) params.set('minAge', String(filters.minAge))
+    if (filters.maxAge !== undefined) params.set('maxAge', String(filters.maxAge))
     if (filters.minFollowers !== undefined) params.set('minFollowers', String(filters.minFollowers))
     if (filters.maxFollowers !== undefined) params.set('maxFollowers', String(filters.maxFollowers))
+    if (filters.minEngagements !== undefined)
+      params.set('minEngagements', String(filters.minEngagements))
+    if (filters.maxEngagements !== undefined)
+      params.set('maxEngagements', String(filters.maxEngagements))
     if (filters.minEngagementRate !== undefined) {
       params.set('minEngagementRate', String(filters.minEngagementRate))
     }
@@ -316,15 +379,48 @@ export function useInfluencerFilters() {
     if (filters.audienceGenderMinPercent !== undefined) {
       params.set('audienceGenderMinPercent', String(filters.audienceGenderMinPercent))
     }
-    // Platform-specific
+    if (filters.audienceLanguage) params.set('audienceLanguage', filters.audienceLanguage)
+    if (filters.audienceLanguageMinPercent !== undefined) {
+      params.set('audienceLanguageMinPercent', String(filters.audienceLanguageMinPercent))
+    }
+    if (filters.audienceMinAge !== undefined)
+      params.set('audienceMinAge', String(filters.audienceMinAge))
+    if (filters.audienceMaxAge !== undefined)
+      params.set('audienceMaxAge', String(filters.audienceMaxAge))
+    if (filters.audienceAgeMinPercent !== undefined) {
+      params.set('audienceAgeMinPercent', String(filters.audienceAgeMinPercent))
+    }
+    // Account filters
+    if (filters.onlyVerified) params.set('onlyVerified', 'true')
+    if (filters.onlyCredible) params.set('onlyCredible', 'true')
+    if (filters.excludePrivate) params.set('excludePrivate', 'true')
+    // Platform-specific - Instagram
     if (filters.minReelsPlays !== undefined)
       params.set('minReelsPlays', String(filters.minReelsPlays))
     if (filters.maxReelsPlays !== undefined)
       params.set('maxReelsPlays', String(filters.maxReelsPlays))
+    if (filters.minFollowersCredibility !== undefined)
+      params.set('minFollowersCredibility', String(filters.minFollowersCredibility))
+    if (filters.maxFollowersCredibility !== undefined)
+      params.set('maxFollowersCredibility', String(filters.maxFollowersCredibility))
+    // Platform-specific - TikTok
     if (filters.minTiktokViews !== undefined)
       params.set('minTiktokViews', String(filters.minTiktokViews))
     if (filters.maxTiktokViews !== undefined)
       params.set('maxTiktokViews', String(filters.maxTiktokViews))
+    if (filters.minTiktokSaves !== undefined)
+      params.set('minTiktokSaves', String(filters.minTiktokSaves))
+    if (filters.maxTiktokSaves !== undefined)
+      params.set('maxTiktokSaves', String(filters.maxTiktokSaves))
+    if (filters.minTiktokShares !== undefined)
+      params.set('minTiktokShares', String(filters.minTiktokShares))
+    if (filters.maxTiktokShares !== undefined)
+      params.set('maxTiktokShares', String(filters.maxTiktokShares))
+    // Platform-specific - YouTube
+    if (filters.minYoutubeViews !== undefined)
+      params.set('minYoutubeViews', String(filters.minYoutubeViews))
+    if (filters.maxYoutubeViews !== undefined)
+      params.set('maxYoutubeViews', String(filters.maxYoutubeViews))
 
     return params.toString()
   }, [filters])

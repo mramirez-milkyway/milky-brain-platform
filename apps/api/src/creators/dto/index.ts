@@ -144,6 +144,17 @@ export class CreatorQueryDto {
   @Max(100)
   audienceAgeMinPercent?: number
 
+  @IsOptional()
+  @IsString()
+  audienceLanguage?: string
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  audienceLanguageMinPercent?: number
+
   // === Performance Metrics ===
   @IsOptional()
   @Type(() => Number)
@@ -193,10 +204,46 @@ export class CreatorQueryDto {
 
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minTiktokSaves?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  maxTiktokSaves?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minTiktokShares?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  maxTiktokShares?: number
+
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(100)
   minCredibility?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  minFollowersCredibility?: number
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  maxFollowersCredibility?: number
 
   // === Internal Filters ===
   @IsOptional()
