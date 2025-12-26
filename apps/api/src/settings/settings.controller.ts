@@ -1,9 +1,10 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
-import { SettingsService } from './settings.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionGuard } from '../common/guards/permission.guard';
-import { RequirePermission } from '../common/decorators/require-permission.decorator';
-import { UpdateOrgSettingsDto } from './dto/settings.dto';
+import { Controller, Get, Patch, Body, UseGuards, Request } from '@nestjs/common'
+import { SettingsService } from './settings.service'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { PermissionGuard } from '../common/guards/permission.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
+import { UpdateOrgSettingsDto } from './dto/settings.dto'
+import { UpdateDataRefreshSettingsDto } from './dto/data-refresh-settings.dto'
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -13,12 +14,27 @@ export class SettingsController {
   @Get('org')
   @RequirePermission('settings:Read')
   async getOrgSettings() {
-    return this.settingsService.getOrgSettings();
+    return this.settingsService.getOrgSettings()
   }
 
   @Patch('org')
   @RequirePermission('settings:Update')
   async updateOrgSettings(@Body() updateDto: UpdateOrgSettingsDto) {
-    return this.settingsService.updateOrgSettings(updateDto);
+    return this.settingsService.updateOrgSettings(updateDto)
+  }
+
+  @Get('data-refresh')
+  @RequirePermission('settings:Read')
+  async getDataRefreshSettings() {
+    return this.settingsService.getDataRefreshSettings()
+  }
+
+  @Patch('data-refresh')
+  @RequirePermission('settings:Write')
+  async updateDataRefreshSettings(
+    @Body() updateDto: UpdateDataRefreshSettingsDto,
+    @Request() req: { user: { userId: number } }
+  ) {
+    return this.settingsService.updateDataRefreshSettings(updateDto, req.user.userId)
   }
 }
